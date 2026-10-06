@@ -1,23 +1,22 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="normal">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#f3f4f6" id="themeMeta">
-<meta name="description" content="Lector PDF minimalista con modo E-Paper y oscuro.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f3f4f6" id="themeColorMeta">
 <title>PaperReader · Lector PDF</title>
 
-<!-- Anti-FOUC: aplica el tema guardado antes de pintar -->
+<!-- Anti-FOUC -->
 <script>
-  (function () {
-    var t = 'normal';
-    try { t = localStorage.getItem('paperreader-theme') || 'normal'; } catch (e) {}
-    if (['normal', 'epaper', 'dark'].indexOf(t) === -1) t = 'normal';
-    document.documentElement.classList.add('theme-' + t);
+  (function(){
+    try {
+      var t = localStorage.getItem('pr-theme');
+      if (['normal','epaper','dark'].indexOf(t) === -1) t = 'normal';
+      document.documentElement.setAttribute('data-theme', t);
+    } catch(e){}
   })();
 </script>
 
-<script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
@@ -28,926 +27,848 @@
 </script>
 
 <style>
-  /* ---------- Reset ligero ---------- */
-  * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; overflow: hidden; }
+/* ============ RESET ============ */
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input{font:inherit}
 
-  /* ---------- Variables por tema ---------- */
-  :root {
-    --bg: #f3f4f6;
-    --surface: #ffffff;
-    --surface-2: #f9fafb;
-    --text: #111827;
-    --text-muted: #6b7280;
-    --border: #e5e7eb;
-    --accent: #d97706;
-    --accent-fg: #ffffff;
-    --page-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.22);
-    --canvas-filter: none;
-    --meta-color: #f3f4f6;
-  }
-  html.theme-epaper {
-    --bg: #ece4d3;
-    --surface: #f7f1e1;
-    --surface-2: #efe7d2;
-    --text: #2a2416;
-    --text-muted: #6b6353;
-    --border: #d6cbb3;
-    --accent: #8a6a2b;
-    --accent-fg: #ffffff;
-    --page-shadow: 0 8px 24px -10px rgba(60, 50, 30, 0.28);
-    --canvas-filter: sepia(0.18) contrast(1.05) brightness(0.98) saturate(0.85);
-    --meta-color: #ece4d3;
-  }
-  html.theme-dark {
-    --bg: #0a0a0a;
-    --surface: #141414;
-    --surface-2: #1c1c1c;
-    --text: #d6d6d6;
-    --text-muted: #8a8a8a;
-    --border: #262626;
-    --accent: #fbbf24;
-    --accent-fg: #141414;
-    --page-shadow: 0 12px 34px -12px rgba(0, 0, 0, 0.85);
-    --canvas-filter: invert(0.92) hue-rotate(180deg) contrast(1.05);
-    --meta-color: #0a0a0a;
-  }
+/* ============ TEMAS ============ */
+html{
+  --bg:#f3f4f6; --surface:#fff; --surface-2:#f9fafb;
+  --text:#111827; --text-2:#6b7280; --border:#e5e7eb;
+  --accent:#d97706; --accent-soft:rgba(217,119,6,.12); --accent-fg:#fff;
+  --shadow:0 10px 30px -12px rgba(0,0,0,.22);
+  --canvas-filter:none; --canvas-bg:#fff; --meta:#f3f4f6;
+}
+html[data-theme="epaper"]{
+  --bg:#e8e0cf; --surface:#f2ebda; --surface-2:#ece4d1;
+  --text:#2a2416; --text-2:#6b6353; --border:#cfc4a8;
+  --accent:#8a6a2b; --accent-soft:rgba(138,106,43,.15); --accent-fg:#fff;
+  --shadow:0 8px 24px -10px rgba(60,50,30,.28);
+  --canvas-filter:sepia(.18) contrast(1.05) brightness(.98) saturate(.85);
+  --canvas-bg:#faf6ea; --meta:#e8e0cf;
+}
+html[data-theme="dark"]{
+  --bg:#0a0a0a; --surface:#141414; --surface-2:#1c1c1c;
+  --text:#e5e5e5; --text-2:#8a8a8a; --border:#262626;
+  --accent:#fbbf24; --accent-soft:rgba(251,191,36,.15); --accent-fg:#141414;
+  --shadow:0 12px 34px -12px rgba(0,0,0,.85);
+  --canvas-filter:invert(.92) hue-rotate(180deg) contrast(1.05);
+  --canvas-bg:#111; --meta:#0a0a0a;
+}
 
-  body {
-    background-color: var(--bg);
-    color: var(--text);
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    transition: background-color 0.35s ease, color 0.35s ease;
-    display: flex;
-    flex-direction: column;
-  }
+/* ============ BASE ============ */
+body{
+  background:var(--bg); color:var(--text);
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  display:flex; flex-direction:column;
+  height:100dvh; overflow:hidden;
+  transition:background-color .3s,color .3s;
+  -webkit-tap-highlight-color:transparent;
+}
+html[data-theme="epaper"] body::before{
+  content:''; position:fixed; inset:0; pointer-events:none;
+  background-image:radial-gradient(rgba(120,100,60,.10) .8px,transparent .8px);
+  background-size:3px 3px; opacity:.5; mix-blend-mode:multiply; z-index:1;
+}
 
-  /* Textura de papel (solo e-paper) */
-  html.theme-epaper body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-      radial-gradient(rgba(120, 100, 60, 0.09) 0.8px, transparent 0.8px);
-    background-size: 3px 3px;
-    z-index: 0;
-    opacity: 0.55;
-    mix-blend-mode: multiply;
-  }
+/* ============ HEADER ============ */
+.header{
+  display:flex; align-items:center; gap:10px;
+  height:54px; padding:0 10px 0 12px;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  flex-shrink:0; z-index:20;
+  transition:background-color .3s,border-color .3s;
+}
+.brand-icon{
+  width:32px; height:32px; display:grid; place-items:center;
+  border-radius:9px; background:var(--accent-soft); color:var(--accent); flex-shrink:0;
+}
+.brand-icon svg{width:18px;height:18px}
+.brand-info{display:flex; flex-direction:column; line-height:1.15; min-width:0; flex:1}
+.brand-title{font-weight:700; font-size:13px; display:none}
+.brand-filename{
+  font-size:12px; color:var(--text-2);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
+}
+@media (min-width:640px){
+  .brand-title{display:block}
+  .brand-filename{max-width:220px}
+}
+.header-spacer{flex:0}
 
-  /* ---------- Header ---------- */
-  .app-header {
-    position: relative;
-    z-index: 30;
-    flex: 0 0 auto;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0 0.75rem;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    transition: transform 0.32s cubic-bezier(0.2, 0.7, 0.2, 1),
-                background-color 0.35s ease,
-                border-color 0.35s ease;
-  }
-  body.chrome-hidden .app-header { transform: translateY(-100%); }
+.toolbar{display:none; align-items:center; gap:6px}
+@media (min-width:900px){
+  .toolbar{display:flex}
+  .brand-info{flex:0 0 auto}
+  .header-spacer{flex:1}
+}
 
-  /* ---------- Botones ---------- */
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    height: 36px;
-    padding: 0 0.7rem;
-    border-radius: 10px;
-    background: transparent;
-    color: var(--text-muted);
-    border: 1px solid transparent;
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
-  }
-  .btn:hover { background: var(--surface-2); color: var(--text); }
-  .btn:active { transform: scale(0.97); }
-  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
-  .btn-icon { width: 36px; padding: 0; }
-  .btn svg { width: 18px; height: 18px; stroke-width: 2; }
+.page-control{
+  display:flex; align-items:center;
+  background:var(--surface-2); border:1px solid var(--border);
+  border-radius:10px; padding:3px;
+}
+.page-control input{
+  width:44px; text-align:center; background:transparent; border:none; outline:none;
+  color:inherit; font-weight:600; font-size:13px; -moz-appearance:textfield;
+}
+.page-control input::-webkit-outer-spin-button,
+.page-control input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.page-control .total{font-size:13px; color:var(--text-2); padding-right:6px}
 
-  .btn-primary {
-    background: var(--accent);
-    color: var(--accent-fg);
-    padding: 0 0.9rem;
-    border-color: transparent;
-  }
-  .btn-primary:hover { filter: brightness(1.08); color: var(--accent-fg); }
+.divider{width:1px; height:20px; background:var(--border); margin:0 4px}
 
-  /* ---------- Indicador de página ---------- */
-  .page-indicator {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 0.2rem 0.35rem;
-    font-size: 0.8rem;
-    color: var(--text);
-  }
-  .page-indicator input {
-    width: 38px;
-    text-align: center;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: inherit;
-    font: inherit;
-    font-weight: 600;
-    -moz-appearance: textfield;
-  }
-  .page-indicator input::-webkit-outer-spin-button,
-  .page-indicator input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .page-indicator .sep { color: var(--text-muted); font-weight: 400; }
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  height:34px; padding:0 10px; border-radius:9px;
+  color:var(--text-2); font-size:13px; font-weight:500;
+  transition:background .15s,color .15s; white-space:nowrap;
+}
+.btn:hover{background:var(--surface-2); color:var(--text)}
+.btn:active{transform:scale(.96)}
+.btn:disabled{opacity:.3; cursor:not-allowed}
+.btn svg{width:17px; height:17px}
+.btn-icon{width:34px; padding:0}
+.btn-primary{background:var(--accent); color:var(--accent-fg); font-weight:600}
+.btn-primary:hover{background:var(--accent); filter:brightness(1.08)}
 
-  /* ---------- Selector de tema ---------- */
-  .theme-switcher {
-    display: flex;
-    gap: 2px;
-    padding: 3px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-  }
-  .theme-switcher button {
-    width: 32px;
-    height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 9px;
-    color: var(--text-muted);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
-  }
-  .theme-switcher button:hover { color: var(--text); }
-  .theme-switcher button.active {
-    background: var(--surface);
-    color: var(--text);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
-  html.theme-dark .theme-switcher button.active { box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
-  .theme-switcher svg { width: 16px; height: 16px; }
+.zoom-label{min-width:56px; justify-content:center; font-variant-numeric:tabular-nums; font-size:12px}
 
-  /* ---------- Área principal ---------- */
-  .app-main {
-    position: relative;
-    flex: 1 1 auto;
-    overflow: auto;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding: 1rem;
-    scroll-behavior: smooth;
-    z-index: 1;
-  }
-  @media (min-width: 640px) { .app-main { padding: 2rem; } }
-  @media (min-width: 1024px) { .app-main { padding: 3rem; } }
+.theme-switcher{
+  display:flex; gap:2px; padding:3px;
+  background:var(--surface-2); border:1px solid var(--border); border-radius:11px;
+}
+.theme-switcher button{
+  width:30px; height:30px; display:grid; place-items:center;
+  border-radius:8px; color:var(--text-2);
+  transition:background .15s,color .15s;
+}
+.theme-switcher button svg{width:15px; height:15px}
+.theme-switcher button:hover{color:var(--text)}
+.theme-switcher button.active{background:var(--surface); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.1)}
 
-  /* ---------- Canvas ---------- */
-  #canvas {
-    display: block;
-    border-radius: 6px;
-    box-shadow: var(--page-shadow);
-    filter: var(--canvas-filter);
-    transition: filter 0.35s ease, box-shadow 0.35s ease;
-    background: #fff;
-    max-width: 100%;
-    height: auto;
-  }
+.menu-btn{
+  width:42px; height:42px; display:grid; place-items:center;
+  border-radius:10px; color:var(--text);
+}
+.menu-btn:hover{background:var(--surface-2)}
+.menu-btn svg{width:22px; height:22px}
+@media (min-width:900px){.menu-btn{display:none}}
 
-  /* ---------- Zona de carga ---------- */
-  .drop-zone {
-    position: absolute;
-    inset: 1rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    border: 2px dashed var(--border);
-    border-radius: 20px;
-    padding: 2rem;
-    background: var(--surface);
-    transition: border-color 0.25s ease, background 0.25s ease;
-    z-index: 2;
-  }
-  .drop-zone:hover { border-color: var(--accent); }
-  .drop-zone h2 { margin: 1rem 0 0.35rem; font-size: 1.15rem; font-weight: 700; }
-  .drop-zone p { margin: 0 0 1.5rem; color: var(--text-muted); font-size: 0.85rem; max-width: 34ch; }
-  .drop-icon {
-    width: 64px; height: 64px;
-    display: grid; place-items: center;
-    border-radius: 18px;
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-    color: var(--accent);
-  }
-  .drop-icon svg { width: 30px; height: 30px; }
+/* ============ MAIN ============ */
+.main{
+  flex:1; position:relative; overflow:auto;
+  display:flex; justify-content:center; align-items:flex-start;
+  padding:16px; z-index:2; -webkit-overflow-scrolling:touch;
+}
+@media (min-width:640px){.main{padding:24px}}
+@media (min-width:1024px){.main{padding:32px}}
 
-  /* ---------- Overlay al arrastrar ---------- */
-  .drop-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 60;
-    display: grid;
-    place-items: center;
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-    backdrop-filter: blur(6px);
-    border: 3px dashed var(--accent);
-    color: var(--text);
-    font-size: 1.25rem;
-    font-weight: 600;
-    pointer-events: none;
-  }
-  .drop-overlay.hidden { display: none; }
+#canvas{
+  display:block; border-radius:4px;
+  box-shadow:var(--shadow); filter:var(--canvas-filter);
+  transition:filter .3s,box-shadow .3s;
+  background:var(--canvas-bg); max-width:100%; height:auto;
+}
 
-  /* ---------- Loading ---------- */
-  .loading {
-    position: fixed;
-    inset: 0;
-    z-index: 70;
-    display: grid;
-    place-items: center;
-    background: color-mix(in srgb, var(--bg) 75%, transparent);
-    backdrop-filter: blur(8px);
-    gap: 0.75rem;
-    transition: opacity 0.2s ease;
-  }
-  .loading.hidden { display: none; }
-  .loading-inner { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
-  .spinner {
-    width: 36px; height: 36px;
-    border: 3px solid color-mix(in srgb, var(--accent) 25%, transparent);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading p { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+/* ============ EMPTY STATE ============ */
+.empty{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center;
+  padding:16px; overflow-y:auto;
+}
+.empty-inner{
+  width:100%; max-width:480px;
+  display:flex; flex-direction:column; gap:22px;
+  padding:12px 0 40px;
+}
+.empty h1{font-size:20px; font-weight:700; margin:0; text-align:center}
+.empty .subtitle{text-align:center; color:var(--text-2); font-size:13px; margin:6px 0 0}
 
-  /* ---------- Nav móvil flotante ---------- */
-  .mobile-nav {
-    position: fixed;
-    bottom: max(1.25rem, env(safe-area-inset-bottom));
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 25;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.35rem 0.5rem;
-    background: color-mix(in srgb, var(--surface) 88%, transparent);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.4);
-    transition: transform 0.3s ease, opacity 0.3s ease;
-  }
-  .mobile-nav button {
-    width: 40px; height: 40px;
-    display: grid; place-items: center;
-    border-radius: 50%;
-    background: transparent;
-    border: none;
-    color: var(--text);
-    cursor: pointer;
-  }
-  .mobile-nav button:disabled { opacity: 0.3; }
-  .mobile-nav span {
-    font-size: 0.8rem;
-    font-weight: 600;
-    min-width: 60px;
-    text-align: center;
-  }
-  body.chrome-hidden .mobile-nav { opacity: 0; transform: translate(-50%, 20px); pointer-events: none; }
+.theme-section-title{
+  font-size:11px; font-weight:600; text-transform:uppercase;
+  letter-spacing:.06em; color:var(--text-2); margin-bottom:10px; text-align:center;
+}
+.theme-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.theme-card{
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  padding:14px 6px; border-radius:14px; border:2px solid transparent;
+  transition:border-color .2s,transform .15s,box-shadow .2s;
+  text-align:center; cursor:pointer;
+}
+.theme-card:hover{transform:translateY(-2px)}
+.theme-card.active{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+.theme-card[data-theme="normal"]{background:#f3f4f6; color:#111827; border-color:#d1d5db}
+.theme-card[data-theme="epaper"]{background:#ece4d1; color:#2a2416; border-color:#cfc4a8}
+.theme-card[data-theme="dark"]{background:#141414; color:#e5e5e5; border-color:#333}
+.theme-card .icon{font-size:24px; line-height:1}
+.theme-card .name{font-size:13px; font-weight:600}
+.theme-card .desc{font-size:10px; opacity:.75}
 
-  /* ---------- Utilidades ---------- */
-  .hidden { display: none !important; }
-  @media (min-width: 768px) { .md\:flex { display: flex !important; } }
+.drop-zone{
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  padding:32px 20px; border:2px dashed var(--border);
+  border-radius:18px; background:var(--surface);
+  transition:border-color .2s,background .2s; cursor:pointer;
+}
+.drop-zone:hover{border-color:var(--accent)}
+.drop-zone .drop-icon{
+  width:52px; height:52px; display:grid; place-items:center;
+  border-radius:15px; background:var(--accent-soft); color:var(--accent);
+}
+.drop-zone .drop-icon svg{width:26px; height:26px}
+.drop-zone h2{font-size:15px; font-weight:700; margin:0}
+.drop-zone p{margin:0 0 6px; color:var(--text-2); font-size:12px; text-align:center; max-width:30ch}
 
-  /* Scrollbar minimalista */
-  .app-main::-webkit-scrollbar { width: 10px; height: 10px; }
-  .app-main::-webkit-scrollbar-track { background: transparent; }
-  .app-main::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--text-muted) 35%, transparent);
-    border-radius: 999px;
-    border: 3px solid transparent;
-    background-clip: padding-box;
-  }
+/* ============ BOTTOM NAV (mobile) ============ */
+.bottom-nav{
+  position:fixed; bottom:max(14px,env(safe-area-inset-bottom));
+  left:50%; transform:translateX(-50%);
+  display:none; align-items:center; gap:4px;
+  padding:6px 8px;
+  background:color-mix(in srgb,var(--surface) 88%,transparent);
+  backdrop-filter:blur(14px) saturate(1.4);
+  -webkit-backdrop-filter:blur(14px) saturate(1.4);
+  border:1px solid var(--border); border-radius:999px;
+  box-shadow:0 10px 30px -10px rgba(0,0,0,.35);
+  z-index:25;
+}
+.bottom-nav.visible{display:flex}
+.bottom-nav button{
+  width:42px; height:42px; display:grid; place-items:center;
+  border-radius:50%; color:var(--text);
+}
+.bottom-nav button:hover{background:var(--surface-2)}
+.bottom-nav button:active{transform:scale(.92)}
+.bottom-nav button:disabled{opacity:.25}
+.bottom-nav svg{width:20px; height:20px}
+.bottom-nav .page-display{
+  font-size:13px; font-weight:600; min-width:72px; text-align:center;
+  font-variant-numeric:tabular-nums; padding:0 6px;
+}
+@media (min-width:900px){.bottom-nav{display:none !important}}
 
-  /* Transición suave al cambiar el filtro del canvas */
-  #canvas { will-change: filter; }
+/* ============ BOTTOM SHEET ============ */
+.sheet-backdrop{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.45);
+  opacity:0; pointer-events:none;
+  transition:opacity .25s; z-index:40;
+}
+.sheet-backdrop.open{opacity:1; pointer-events:auto}
+
+.sheet{
+  position:fixed; left:0; right:0; bottom:0;
+  background:var(--surface); color:var(--text);
+  border-radius:20px 20px 0 0;
+  transform:translateY(100%);
+  transition:transform .32s cubic-bezier(.32,.72,0,1);
+  z-index:50;
+  padding:6px 16px max(20px,env(safe-area-inset-bottom));
+  max-height:85dvh; overflow-y:auto;
+  box-shadow:0 -10px 40px rgba(0,0,0,.18);
+}
+.sheet.open{transform:translateY(0)}
+@media (min-width:900px){.sheet,.sheet-backdrop{display:none !important}}
+
+.sheet-handle{
+  width:36px; height:4px; border-radius:999px;
+  background:var(--border); margin:6px auto 12px;
+}
+.sheet-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 4px 12px;
+}
+.sheet-header h2{font-size:16px; font-weight:700; margin:0}
+.sheet-close{
+  width:34px; height:34px; display:grid; place-items:center;
+  border-radius:10px; color:var(--text-2);
+}
+.sheet-close:hover{background:var(--surface-2); color:var(--text)}
+.sheet-close svg{width:18px; height:18px}
+
+.sheet-section{padding:14px 4px; border-top:1px solid var(--border)}
+.sheet-section:first-of-type{border-top:none}
+.sheet-section h3{
+  font-size:11px; font-weight:600; text-transform:uppercase;
+  letter-spacing:.06em; color:var(--text-2); margin:0 0 10px;
+}
+
+.sheet-themes{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.sheet-theme-btn{
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  padding:12px 6px; border-radius:12px;
+  border:2px solid var(--border); background:var(--surface-2);
+  color:var(--text);
+  transition:border-color .2s,background .2s;
+}
+.sheet-theme-btn.active{border-color:var(--accent); background:var(--accent-soft)}
+.sheet-theme-btn svg{width:20px; height:20px}
+.sheet-theme-btn .lbl{font-size:11px; font-weight:600}
+
+.sheet-row{display:flex; align-items:center; justify-content:space-between; gap:12px}
+
+.zoom-controls{
+  display:flex; align-items:center; gap:8px;
+  background:var(--surface-2); border:1px solid var(--border);
+  border-radius:12px; padding:4px;
+}
+.zoom-controls button{
+  width:40px; height:40px; display:grid; place-items:center;
+  border-radius:9px; color:var(--text);
+}
+.zoom-controls button:hover{background:var(--surface)}
+.zoom-controls button:active{transform:scale(.94)}
+.zoom-controls button svg{width:18px; height:18px}
+.zoom-controls .zoom-val{
+  min-width:56px; text-align:center; font-weight:600; font-size:14px;
+  font-variant-numeric:tabular-nums;
+}
+
+.sheet-input{
+  flex:1; height:40px; padding:0 12px;
+  border:1px solid var(--border); background:var(--surface-2);
+  border-radius:10px; color:inherit; outline:none; font-size:14px;
+  -moz-appearance:textfield;
+}
+.sheet-input:focus{border-color:var(--accent)}
+.sheet-input::-webkit-outer-spin-button,
+.sheet-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+
+.sheet-btn{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  height:46px; padding:0 16px; border-radius:12px;
+  background:var(--surface-2); border:1px solid var(--border);
+  color:var(--text); font-size:14px; font-weight:500;
+}
+.sheet-btn:hover{background:var(--accent-soft); border-color:var(--accent)}
+.sheet-btn svg{width:18px; height:18px}
+.sheet-btn.primary{background:var(--accent); color:var(--accent-fg); border-color:transparent}
+
+.sheet-actions{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+
+/* ============ OVERLAYS ============ */
+.loading{
+  position:fixed; inset:0; z-index:70;
+  display:grid; place-items:center;
+  background:color-mix(in srgb,var(--bg) 82%,transparent);
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+}
+.loading[hidden]{display:none}
+.loading-inner{display:flex; flex-direction:column; align-items:center; gap:12px}
+.spinner{
+  width:34px; height:34px;
+  border:3px solid var(--accent-soft); border-top-color:var(--accent);
+  border-radius:50%; animation:spin .85s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{font-size:13px; font-weight:600; color:var(--text); margin:0}
+
+.drop-overlay{
+  position:fixed; inset:0; z-index:80;
+  display:grid; place-items:center;
+  background:color-mix(in srgb,var(--accent) 16%,transparent);
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  border:3px dashed var(--accent); pointer-events:none;
+}
+.drop-overlay[hidden]{display:none}
+.drop-overlay-inner{
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  color:var(--text); font-weight:600;
+}
+.drop-overlay svg{width:44px; height:44px; color:var(--accent)}
 </style>
 </head>
 
 <body>
-  <!-- ============ HEADER ============ -->
-  <header class="app-header">
-    <!-- Logo -->
-    <div style="display:flex; align-items:center; gap:0.6rem; min-width:0;">
-      <div style="width:34px; height:34px; display:grid; place-items:center; border-radius:10px;
-                  background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent);">
-        <i data-lucide="book-open" style="width:18px;height:18px;"></i>
+<!-- ============ HEADER ============ -->
+<header class="header">
+  <div class="brand-icon"><i data-lucide="book-open"></i></div>
+  <div class="brand-info">
+    <span class="brand-title">PaperReader</span>
+    <span class="brand-filename" id="filename">Sin documento</span>
+  </div>
+  <div class="header-spacer"></div>
+
+  <!-- Desktop toolbar -->
+  <div class="toolbar" id="desktopToolbar">
+    <button class="btn btn-icon" id="prevBtnD" aria-label="Página anterior">
+      <i data-lucide="chevron-left"></i>
+    </button>
+    <div class="page-control">
+      <input type="number" id="pageInputD" min="1" value="1" aria-label="Página">
+      <span class="total">/</span>
+      <span class="total" id="pageTotalD" style="padding-left:4px">0</span>
+    </div>
+    <button class="btn btn-icon" id="nextBtnD" aria-label="Página siguiente">
+      <i data-lucide="chevron-right"></i>
+    </button>
+
+    <div class="divider"></div>
+
+    <button class="btn btn-icon" id="zoomOutD" aria-label="Reducir zoom"><i data-lucide="zoom-out"></i></button>
+    <button class="btn zoom-label" id="zoomLabelD" title="Ajustar al ancho">100%</button>
+    <button class="btn btn-icon" id="zoomInD" aria-label="Aumentar zoom"><i data-lucide="zoom-in"></i></button>
+    <button class="btn btn-icon" id="fitWidthD" aria-label="Ajustar al ancho"><i data-lucide="maximize-2"></i></button>
+
+    <div class="divider"></div>
+
+    <div class="theme-switcher" role="group" aria-label="Tema">
+      <button data-theme="normal" title="Claro" aria-label="Tema claro"><i data-lucide="sun"></i></button>
+      <button data-theme="epaper" title="E-Paper" aria-label="Tema e-paper"><i data-lucide="book-text"></i></button>
+      <button data-theme="dark" title="Oscuro" aria-label="Tema oscuro"><i data-lucide="moon"></i></button>
+    </div>
+
+    <button class="btn btn-icon" id="fullscreenBtnD" aria-label="Pantalla completa" title="Pantalla completa (F)">
+      <i data-lucide="maximize"></i>
+    </button>
+
+    <label for="fileInput" class="btn btn-primary">
+      <i data-lucide="upload"></i><span>Abrir</span>
+    </label>
+  </div>
+
+  <!-- Mobile menu -->
+  <button class="menu-btn" id="menuBtn" aria-label="Menú"><i data-lucide="menu"></i></button>
+</header>
+
+<!-- ============ MAIN ============ -->
+<main class="main" id="main">
+  <div class="empty" id="emptyState">
+    <div class="empty-inner">
+      <div>
+        <h1>Bienvenido a PaperReader</h1>
+        <p class="subtitle">Elige tu modo de lectura antes de empezar.</p>
       </div>
-      <div style="min-width:0; line-height:1.1;">
-        <div style="font-weight:700; font-size:0.9rem;">PaperReader</div>
-        <div id="fileInfo" style="font-size:0.7rem; color:var(--text-muted); white-space:nowrap;
-                                  overflow:hidden; text-overflow:ellipsis; max-width:180px;">
-          Sin documento
+
+      <div>
+        <div class="theme-section-title">Modo de lectura</div>
+        <div class="theme-grid">
+          <button class="theme-card" data-theme="normal" type="button">
+            <div class="icon">☀️</div>
+            <div class="name">Claro</div>
+            <div class="desc">Lectura diurna</div>
+          </button>
+          <button class="theme-card" data-theme="epaper" type="button">
+            <div class="icon">📖</div>
+            <div class="name">E-Paper</div>
+            <div class="desc">Tipo Kindle</div>
+          </button>
+          <button class="theme-card" data-theme="dark" type="button">
+            <div class="icon">🌙</div>
+            <div class="name">Oscuro</div>
+            <div class="desc">Lectura nocturna</div>
+          </button>
         </div>
       </div>
-    </div>
 
-    <!-- Controles centrales (nav + zoom) -->
-    <div id="centerControls" class="hidden" style="flex:1; display:flex; align-items:center;
-                                                   justify-content:center; gap:0.5rem;">
-      <button id="prevBtn" class="btn btn-icon" aria-label="Página anterior">
-        <i data-lucide="chevron-left"></i>
-      </button>
-      <div class="page-indicator">
-        <input id="pageInput" type="number" min="1" value="1" aria-label="Número de página">
-        <span class="sep">/</span>
-        <span id="pageTotal" style="padding-right:0.35rem;">0</span>
-      </div>
-      <button id="nextBtn" class="btn btn-icon" aria-label="Página siguiente">
-        <i data-lucide="chevron-right"></i>
-      </button>
-
-      <div style="width:1px; height:20px; background:var(--border); margin:0 0.25rem;"></div>
-
-      <button id="zoomOut" class="btn btn-icon" aria-label="Reducir zoom">
-        <i data-lucide="zoom-out"></i>
-      </button>
-      <button id="zoomLevel" class="btn" style="min-width:60px; justify-content:center;
-                                                 font-variant-numeric: tabular-nums;"
-              title="Clic para ajustar al ancho">100%</button>
-      <button id="zoomIn" class="btn btn-icon" aria-label="Aumentar zoom">
-        <i data-lucide="zoom-in"></i>
-      </button>
-      <button id="fitBtn" class="btn btn-icon" aria-label="Ajustar al ancho">
-        <i data-lucide="maximize-2"></i>
-      </button>
-    </div>
-
-    <!-- Acciones derecha -->
-    <div style="display:flex; align-items:center; gap:0.4rem;">
-      <!-- Selector de tema -->
-      <div class="theme-switcher" role="tablist" aria-label="Tema">
-        <button data-theme="normal" title="Claro" aria-label="Tema claro">
-          <i data-lucide="sun"></i>
-        </button>
-        <button data-theme="epaper" title="E-Paper" aria-label="Tema e-paper">
-          <i data-lucide="book-text"></i>
-        </button>
-        <button data-theme="dark" title="Oscuro" aria-label="Tema oscuro">
-          <i data-lucide="moon"></i>
-        </button>
-      </div>
-
-      <button id="fullscreenBtn" class="btn btn-icon" title="Pantalla completa (F)" aria-label="Pantalla completa">
-        <i data-lucide="maximize"></i>
-      </button>
-
-      <label for="fileInput" class="btn btn-primary" title="Abrir PDF">
-        <i data-lucide="upload"></i>
-        <span style="display:none;" class="md:inline">Abrir</span>
-      </label>
-      <input type="file" id="fileInput" accept="application/pdf,.pdf" hidden>
-    </div>
-  </header>
-
-  <!-- ============ MAIN ============ -->
-  <main class="app-main" id="mainArea">
-    <!-- Drop zone (visible sin PDF) -->
-    <div class="drop-zone" id="dropZone">
-      <div class="drop-icon"><i data-lucide="file-text"></i></div>
-      <h2>Abre un PDF para empezar</h2>
-      <p>Arrastra el archivo aquí o selecciónalo desde tu dispositivo. Todo el procesamiento ocurre en tu navegador.</p>
-      <label for="fileInput" class="btn btn-primary" style="height:40px; padding:0 1.1rem;">
-        <i data-lucide="folder-open"></i>
-        <span>Seleccionar PDF</span>
+      <label for="fileInput" class="drop-zone" id="dropZone">
+        <div class="drop-icon"><i data-lucide="file-text"></i></div>
+        <h2>Suelta tu PDF aquí</h2>
+        <p>O toca este recuadro para seleccionar un archivo de tu dispositivo.</p>
+        <span class="btn btn-primary" style="pointer-events:none">
+          <i data-lucide="folder-open"></i><span>Seleccionar archivo</span>
+        </span>
       </label>
     </div>
-
-    <!-- Canvas del PDF -->
-    <canvas id="canvas" class="hidden" aria-label="Página del PDF"></canvas>
-  </main>
-
-  <!-- ============ NAV MÓVIL ============ -->
-  <div class="mobile-nav hidden" id="mobileNav">
-    <button id="prevBtnM" aria-label="Anterior"><i data-lucide="chevron-left"></i></button>
-    <span><span id="pageCurM">1</span> / <span id="pageTotM">0</span></span>
-    <button id="nextBtnM" aria-label="Siguiente"><i data-lucide="chevron-right"></i></button>
   </div>
 
-  <!-- ============ OVERLAYS ============ -->
-  <div class="drop-overlay hidden" id="dropOverlay">
-    <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
-      <i data-lucide="download" style="width:42px;height:42px;color:var(--accent);"></i>
-      <span>Suelta el PDF aquí</span>
+  <canvas id="canvas" hidden></canvas>
+</main>
+
+<!-- ============ BOTTOM NAV ============ -->
+<nav class="bottom-nav" id="bottomNav" hidden>
+  <button id="prevBtnM" aria-label="Página anterior"><i data-lucide="chevron-left"></i></button>
+  <span class="page-display"><span id="pageCurM">1</span> / <span id="pageTotM">0</span></span>
+  <button id="nextBtnM" aria-label="Página siguiente"><i data-lucide="chevron-right"></i></button>
+</nav>
+
+<!-- ============ BOTTOM SHEET ============ -->
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+<aside class="sheet" id="sheet" aria-hidden="true">
+  <div class="sheet-handle"></div>
+
+  <div class="sheet-header">
+    <h2>Controles</h2>
+    <button class="sheet-close" id="sheetClose" aria-label="Cerrar"><i data-lucide="x"></i></button>
+  </div>
+
+  <div class="sheet-section">
+    <h3>Modo de lectura</h3>
+    <div class="sheet-themes">
+      <button class="sheet-theme-btn" data-theme="normal" type="button">
+        <i data-lucide="sun"></i><span class="lbl">Claro</span>
+      </button>
+      <button class="sheet-theme-btn" data-theme="epaper" type="button">
+        <i data-lucide="book-text"></i><span class="lbl">E-Paper</span>
+      </button>
+      <button class="sheet-theme-btn" data-theme="dark" type="button">
+        <i data-lucide="moon"></i><span class="lbl">Oscuro</span>
+      </button>
     </div>
   </div>
 
-  <div class="loading hidden" id="loading">
-    <div class="loading-inner">
-      <div class="spinner"></div>
-      <p id="loadingText">Cargando…</p>
+  <div class="sheet-section">
+    <h3>Zoom</h3>
+    <div class="sheet-row">
+      <div class="zoom-controls">
+        <button id="zoomOutM" aria-label="Reducir zoom"><i data-lucide="zoom-out"></i></button>
+        <span class="zoom-val" id="zoomLabelM">100%</span>
+        <button id="zoomInM" aria-label="Aumentar zoom"><i data-lucide="zoom-in"></i></button>
+      </div>
+      <button class="sheet-btn" id="fitWidthM" style="width:auto; flex:1">
+        <i data-lucide="maximize-2"></i><span>Ajustar ancho</span>
+      </button>
     </div>
   </div>
+
+  <div class="sheet-section">
+    <h3>Ir a página</h3>
+    <div class="sheet-row">
+      <input type="number" class="sheet-input" id="pageInputM" min="1" value="1" placeholder="Nº de página">
+      <button class="sheet-btn primary" id="goPageBtn" style="width:auto">
+        <i data-lucide="arrow-right"></i><span>Ir</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="sheet-section">
+    <h3>Acciones</h3>
+    <div class="sheet-actions">
+      <button class="sheet-btn" id="fullscreenBtnM">
+        <i data-lucide="maximize"></i><span>Pantalla completa</span>
+      </button>
+      <label for="fileInput" class="sheet-btn" style="cursor:pointer">
+        <i data-lucide="upload"></i><span>Abrir otro PDF</span>
+      </label>
+    </div>
+  </div>
+</aside>
+
+<!-- ============ OVERLAYS ============ -->
+<div class="loading" id="loading" hidden>
+  <div class="loading-inner">
+    <div class="spinner"></div>
+    <p id="loadingText">Cargando…</p>
+  </div>
+</div>
+
+<div class="drop-overlay" id="dropOverlay" hidden>
+  <div class="drop-overlay-inner">
+    <i data-lucide="download"></i>
+    <span>Suelta el PDF para abrirlo</span>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="application/pdf,.pdf" hidden>
 
 <script>
 (() => {
   'use strict';
 
-  /* ============================================================
-   *  CONSTANTES
-   * ============================================================ */
-  const MIN_SCALE   = 0.25;
-  const MAX_SCALE   = 4.0;
-  const SCALE_STEP  = 0.2;
-  const DPR_CAP     = 2;                 // evita canvas gigantes en móvil
-  const THEME_KEY   = 'paperreader-theme';
-  const CHROME_HIDE_MS = 2600;           // auto-ocultar header en fullscreen
+  const MIN_SCALE = 0.25, MAX_SCALE = 4.0, SCALE_STEP = 0.2, DPR_CAP = 2;
+  const THEME_KEY = 'pr-theme';
 
-  /* ============================================================
-   *  ESTADO
-   * ============================================================ */
   const state = {
-    pdf: null,
-    page: 1,
-    scale: 1,
-    fitMode: 'width',        // 'width' | 'page' | 'custom'
-    rendering: false,
-    pending: null,
-    renderTask: null,
-    token: 0,
-    theme: 'normal',
+    pdf: null, page: 1, scale: 1, fitMode: 'width',
+    rendering: false, pending: null, renderTask: null, token: 0,
+    theme: document.documentElement.getAttribute('data-theme') || 'normal',
     fullscreen: false,
-    chromeTimer: null,
     touch: { x: 0, y: 0, t: 0, active: false }
   };
 
-  /* ============================================================
-   *  DOM
-   * ============================================================ */
-  const $ = (id) => document.getElementById(id);
+  const $ = id => document.getElementById(id);
+  const html = document.documentElement;
+  const canvas = $('canvas');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const main = $('main');
+  const emptyState = $('emptyState');
+  const filename = $('filename');
+  const fileInput = $('fileInput');
+  const loading = $('loading');
+  const loadingText = $('loadingText');
+  const dropOverlay = $('dropOverlay');
+  const bottomNav = $('bottomNav');
+  const sheet = $('sheet');
+  const sheetBackdrop = $('sheetBackdrop');
 
-  const canvas        = $('canvas');
-  const ctx           = canvas.getContext('2d', { alpha: false });
-  const dropZone      = $('dropZone');
-  const mainArea      = $('mainArea');
-  const fileInput     = $('fileInput');
-  const fileInfo      = $('fileInfo');
-  const centerControls= $('centerControls');
-  const mobileNav     = $('mobileNav');
-  const loading       = $('loading');
-  const loadingText   = $('loadingText');
-  const dropOverlay   = $('dropOverlay');
-  const pageInput     = $('pageInput');
-  const pageTotal     = $('pageTotal');
-  const pageCurM      = $('pageCurM');
-  const pageTotM      = $('pageTotM');
-  const zoomLevel     = $('zoomLevel');
-  const fullscreenBtn = $('fullscreenBtn');
-  const themeMeta     = $('themeMeta');
-
-  /* ============================================================
-   *  UTILIDADES UI
-   * ============================================================ */
-  const show = (el, yes = true) => el.classList.toggle('hidden', !yes);
-
-  function setLoading(on, text) {
-    if (text) loadingText.textContent = text;
-    show(loading, on);
-  }
-
-  function updateZoomLabel() {
-    zoomLevel.textContent = Math.round(state.scale * 100) + '%';
-  }
-
-  function updatePageUI() {
-    const total = state.pdf ? state.pdf.numPages : 0;
-    pageInput.value = state.page;
-    pageTotal.textContent = total;
-    pageCurM.textContent = state.page;
-    pageTotM.textContent = total;
-
-    const first = state.page <= 1;
-    const last  = !state.pdf || state.page >= total;
-    $('prevBtn').disabled = first;
-    $('prevBtnM').disabled = first;
-    $('nextBtn').disabled = last;
-    $('nextBtnM').disabled = last;
-  }
-
-  /* ============================================================
-   *  TEMA
-   * ============================================================ */
+  /* ============ THEME ============ */
   function setTheme(theme) {
-    if (!['normal', 'epaper', 'dark'].includes(theme)) theme = 'normal';
+    if (!['normal','epaper','dark'].includes(theme)) theme = 'normal';
     state.theme = theme;
+    html.setAttribute('data-theme', theme);
 
-    document.documentElement.classList.remove('theme-normal', 'theme-epaper', 'theme-dark');
-    document.documentElement.classList.add('theme-' + theme);
+    document.querySelectorAll('.theme-card, .sheet-theme-btn, .theme-switcher button')
+      .forEach(btn => btn.classList.toggle('active', btn.dataset.theme === theme));
 
-    document.querySelectorAll('.theme-switcher button').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.theme === theme);
-    });
-
-    // Actualiza meta theme-color (barra del navegador en móvil)
-    const metaColor = getComputedStyle(document.documentElement)
-      .getPropertyValue('--meta-color').trim();
-    if (metaColor) themeMeta.setAttribute('content', metaColor);
-
-    try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      const c = getComputedStyle(html).getPropertyValue('--meta').trim();
+      if (c) meta.setAttribute('content', c);
+    }
+    try { localStorage.setItem(THEME_KEY, theme); } catch(e){}
   }
 
-  /* ============================================================
-   *  RENDER PDF
-   * ============================================================ */
+  document.querySelectorAll('.theme-card, .sheet-theme-btn, .theme-switcher button')
+    .forEach(btn => btn.addEventListener('click', () => setTheme(btn.dataset.theme)));
+
+  /* ============ SHEET ============ */
+  const openSheet  = () => { sheet.classList.add('open'); sheetBackdrop.classList.add('open'); sheet.setAttribute('aria-hidden','false'); };
+  const closeSheet = () => { sheet.classList.remove('open'); sheetBackdrop.classList.remove('open'); sheet.setAttribute('aria-hidden','true'); };
+  $('menuBtn').addEventListener('click', openSheet);
+  $('sheetClose').addEventListener('click', closeSheet);
+  sheetBackdrop.addEventListener('click', closeSheet);
+
+  /* ============ RENDER ============ */
   function renderPage(num) {
     if (!state.pdf) return;
-
     const token = ++state.token;
-
-    // Cancela render anterior (evita "canvas in use")
-    if (state.renderTask) {
-      try { state.renderTask.cancel(); } catch (e) {}
-      state.renderTask = null;
-    }
+    if (state.renderTask) { try { state.renderTask.cancel(); } catch(e){} state.renderTask = null; }
     state.rendering = true;
 
-    state.pdf.getPage(num)
-      .then(page => {
-        if (token !== state.token) return;
-
-        const viewport = page.getViewport({ scale: state.scale });
-        const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
-
-        canvas.width  = Math.floor(viewport.width  * dpr);
-        canvas.height = Math.floor(viewport.height * dpr);
-        canvas.style.width  = Math.floor(viewport.width) + 'px';
-        canvas.style.height = Math.floor(viewport.height) + 'px';
-
-        state.renderTask = page.render({
-          canvasContext: ctx,
-          viewport,
-          transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null
-        });
-
-        return state.renderTask.promise;
-      })
-      .then(() => {
-        if (token !== state.token) return;
-        state.rendering = false;
-        state.renderTask = null;
-
-        if (state.pending !== null) {
-          const next = state.pending;
-          state.pending = null;
-          renderPage(next);
-        }
-      })
-      .catch(err => {
-        if (token !== state.token) return;
-        state.rendering = false;
-        state.renderTask = null;
-        if (err && err.name === 'RenderingCancelledException') return;
-        console.error('Error al renderizar:', err);
+    state.pdf.getPage(num).then(page => {
+      if (token !== state.token) return;
+      const vp = page.getViewport({ scale: state.scale });
+      const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+      canvas.width  = Math.floor(vp.width  * dpr);
+      canvas.height = Math.floor(vp.height * dpr);
+      canvas.style.width  = Math.floor(vp.width)  + 'px';
+      canvas.style.height = Math.floor(vp.height) + 'px';
+      state.renderTask = page.render({
+        canvasContext: ctx, viewport: vp,
+        transform: dpr !== 1 ? [dpr,0,0,dpr,0,0] : null
       });
-
+      return state.renderTask.promise;
+    }).then(() => {
+      if (token !== state.token) return;
+      state.rendering = false; state.renderTask = null;
+      if (state.pending !== null) { const n = state.pending; state.pending = null; renderPage(n); }
+    }).catch(err => {
+      if (token !== state.token) return;
+      state.rendering = false; state.renderTask = null;
+      if (err && err.name === 'RenderingCancelledException') return;
+      console.error(err);
+    });
     updatePageUI();
   }
 
-  function queueRender(num) {
-    if (state.rendering) state.pending = num;
-    else renderPage(num);
-  }
+  const queueRender = num => { if (state.rendering) state.pending = num; else renderPage(num); };
 
-  /* ============================================================
-   *  NAVEGACIÓN
-   * ============================================================ */
+  /* ============ NAV ============ */
   function goToPage(num) {
     if (!state.pdf) return;
-    const total = state.pdf.numPages;
-    num = Math.max(1, Math.min(total, num));
+    num = Math.max(1, Math.min(state.pdf.numPages, num));
     if (num === state.page) return;
-    state.page = num;
-    queueRender(num);
-    mainArea.scrollTop = 0;
+    state.page = num; queueRender(num); main.scrollTop = 0;
   }
-
   const nextPage = () => goToPage(state.page + 1);
   const prevPage = () => goToPage(state.page - 1);
 
-  /* ============================================================
-   *  ZOOM / AJUSTE
-   * ============================================================ */
-  function applyScale(value, mode) {
-    const clamped = Math.max(MIN_SCALE, Math.min(MAX_SCALE, value));
-    if (Math.abs(clamped - state.scale) < 0.001 && mode === state.fitMode) return;
-    state.scale = clamped;
-    state.fitMode = mode || 'custom';
-    updateZoomLabel();
-    if (state.pdf) queueRender(state.page);
+  function updatePageUI() {
+    const total = state.pdf ? state.pdf.numPages : 0;
+    const p = state.page;
+    const first = p <= 1, last = !state.pdf || p >= total;
+    const piD = $('pageInputD'); if (piD) piD.value = p;
+    const ptD = $('pageTotalD'); if (ptD) ptD.textContent = total;
+    $('prevBtnD').disabled = first; $('nextBtnD').disabled = last;
+    $('pageCurM').textContent = p; $('pageTotM').textContent = total;
+    $('prevBtnM').disabled = first; $('nextBtnM').disabled = last;
+    const piM = $('pageInputM'); if (piM) piM.value = p;
   }
 
+  /* ============ ZOOM ============ */
+  function updateZoomUI() {
+    const pct = Math.round(state.scale * 100) + '%';
+    $('zoomLabelD').textContent = pct;
+    $('zoomLabelM').textContent = pct;
+  }
+  function applyScale(v, mode) {
+    const c = Math.max(MIN_SCALE, Math.min(MAX_SCALE, v));
+    if (Math.abs(c - state.scale) < 0.001 && mode === state.fitMode) return;
+    state.scale = c; state.fitMode = mode || 'custom';
+    updateZoomUI();
+    if (state.pdf) queueRender(state.page);
+  }
   const zoomIn  = () => applyScale(state.scale + SCALE_STEP, 'custom');
   const zoomOut = () => applyScale(state.scale - SCALE_STEP, 'custom');
 
-  function fitToWidth() {
+  function fitWidth() {
     if (!state.pdf) { state.fitMode = 'width'; return; }
     state.pdf.getPage(state.page).then(page => {
-      const cs = getComputedStyle(mainArea);
-      const available = mainArea.clientWidth
-        - parseFloat(cs.paddingLeft || 0)
-        - parseFloat(cs.paddingRight || 0) - 4;
+      const cs = getComputedStyle(main);
+      const avail = main.clientWidth - parseFloat(cs.paddingLeft||0) - parseFloat(cs.paddingRight||0) - 4;
       const vp = page.getViewport({ scale: 1 });
-      applyScale(available / vp.width, 'width');
+      applyScale(avail / vp.width, 'width');
     });
   }
 
-  function fitToPage() {
-    if (!state.pdf) { state.fitMode = 'page'; return; }
-    state.pdf.getPage(state.page).then(page => {
-      const cs = getComputedStyle(mainArea);
-      const availW = mainArea.clientWidth - parseFloat(cs.paddingLeft || 0)
-                   - parseFloat(cs.paddingRight || 0) - 4;
-      const availH = mainArea.clientHeight - parseFloat(cs.paddingTop || 0)
-                   - parseFloat(cs.paddingBottom || 0) - 4;
-      const vp = page.getViewport({ scale: 1 });
-      const scale = Math.min(availW / vp.width, availH / vp.height);
-      applyScale(scale, 'page');
-    });
-  }
-
-  /* ============================================================
-   *  CARGA DE PDF
-   * ============================================================ */
+  /* ============ LOAD PDF ============ */
   async function loadPDF(file) {
     if (!file) return;
+    if (typeof pdfjsLib === 'undefined') { alert('No se pudo cargar PDF.js. Verifica tu conexión.'); return; }
+    if (!(file.type === 'application/pdf' || /\.pdf$/i.test(file.name))) { alert('Selecciona un archivo PDF.'); return; }
 
-    if (typeof pdfjsLib === 'undefined') {
-      alert('No se pudo cargar PDF.js. Revisa tu conexión a internet.');
-      return;
-    }
-    if (!(file.type === 'application/pdf' || /\.pdf$/i.test(file.name))) {
-      alert('Por favor selecciona un archivo PDF.');
-      return;
-    }
-
-    setLoading(true, 'Cargando documento…');
+    loading.hidden = false;
+    loadingText.textContent = 'Cargando documento…';
 
     try {
-      // Limpia el PDF anterior
       state.token++;
-      if (state.renderTask) { try { state.renderTask.cancel(); } catch (e) {} state.renderTask = null; }
-      if (state.pdf) { try { await state.pdf.destroy(); } catch (e) {} state.pdf = null; }
+      if (state.renderTask) { try { state.renderTask.cancel(); } catch(e){} state.renderTask = null; }
+      if (state.pdf) { try { await state.pdf.destroy(); } catch(e){} state.pdf = null; }
 
-      const buffer = await file.arrayBuffer();
-      const task = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
-      const pdf = await task.promise;
-
-      state.pdf = pdf;
+      const buf = await file.arrayBuffer();
+      state.pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
       state.page = 1;
 
-      fileInfo.textContent = file.name;
-      fileInfo.title = file.name;
-
-      show(dropZone, false);
-      show(canvas, true);
-      show(centerControls, true);
-      show(mobileNav, true);
+      filename.textContent = file.name;
+      filename.title = file.name;
+      emptyState.hidden = true;
+      canvas.hidden = false;
+      bottomNav.hidden = false;
+      bottomNav.classList.add('visible');
 
       updatePageUI();
-      updateZoomLabel();
+      updateZoomUI();
 
-      // Ajuste inicial: ancho
-      setLoading(true, 'Ajustando…');
-      await fitToWidth();
-
-      setLoading(false);
+      loadingText.textContent = 'Ajustando…';
+      await new Promise(resolve => {
+        state.pdf.getPage(1).then(page => {
+          const cs = getComputedStyle(main);
+          const avail = main.clientWidth - parseFloat(cs.paddingLeft||0) - parseFloat(cs.paddingRight||0) - 4;
+          const vp = page.getViewport({ scale: 1 });
+          applyScale(avail / vp.width, 'width');
+          setTimeout(resolve, 80);
+        });
+      });
+      loading.hidden = true;
     } catch (err) {
-      setLoading(false);
+      loading.hidden = true;
       console.error(err);
       alert('No se pudo abrir el PDF: ' + (err?.message || err));
     }
   }
 
-  /* ============================================================
-   *  PANTALLA COMPLETA + AUTO-OCULTADO DE CHROME
-   * ============================================================ */
-  function showChrome() {
-    document.body.classList.remove('chrome-hidden');
-    if (!state.fullscreen) return;
-    clearTimeout(state.chromeTimer);
-    state.chromeTimer = setTimeout(() => {
-      if (state.fullscreen) document.body.classList.add('chrome-hidden');
-    }, CHROME_HIDE_MS);
-  }
+  /* ============ EVENTS ============ */
+  fileInput.addEventListener('change', e => {
+    const f = e.target.files?.[0];
+    if (f) loadPDF(f);
+    e.target.value = '';
+  });
+
+  $('prevBtnD').addEventListener('click', prevPage);
+  $('nextBtnD').addEventListener('click', nextPage);
+  $('prevBtnM').addEventListener('click', prevPage);
+  $('nextBtnM').addEventListener('click', nextPage);
+
+  const piD = $('pageInputD');
+  piD.addEventListener('change', () => {
+    const v = parseInt(piD.value, 10);
+    if (state.pdf && v >= 1 && v <= state.pdf.numPages) goToPage(v);
+    else piD.value = state.page;
+  });
+  piD.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); piD.blur(); } });
+
+  const goPage = () => {
+    const v = parseInt($('pageInputM').value, 10);
+    if (state.pdf && v >= 1 && v <= state.pdf.numPages) { goToPage(v); closeSheet(); }
+  };
+  $('goPageBtn').addEventListener('click', goPage);
+  $('pageInputM').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); goPage(); } });
+
+  $('zoomInD').addEventListener('click', zoomIn);
+  $('zoomOutD').addEventListener('click', zoomOut);
+  $('fitWidthD').addEventListener('click', fitWidth);
+  $('zoomLabelD').addEventListener('click', fitWidth);
+  $('zoomInM').addEventListener('click', zoomIn);
+  $('zoomOutM').addEventListener('click', zoomOut);
+  $('fitWidthM').addEventListener('click', () => { fitWidth(); closeSheet(); });
 
   async function toggleFullscreen() {
     try {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
-      } else {
-        await document.exitFullscreen();
-      }
-    } catch (err) {
-      console.warn('Fullscreen no disponible:', err);
-    }
+      if (!document.fullscreenElement) await html.requestFullscreen();
+      else await document.exitFullscreen();
+    } catch(e){ console.warn(e); }
   }
+  $('fullscreenBtnD').addEventListener('click', toggleFullscreen);
+  $('fullscreenBtnM').addEventListener('click', () => { toggleFullscreen(); closeSheet(); });
 
   document.addEventListener('fullscreenchange', () => {
     state.fullscreen = !!document.fullscreenElement;
-    const icon = fullscreenBtn.querySelector('i');
-    if (icon) {
-      icon.setAttribute('data-lucide', state.fullscreen ? 'minimize' : 'maximize');
-      if (window.lucide) lucide.createIcons();
-    }
-    if (state.fullscreen) {
-      showChrome();
-    } else {
-      document.body.classList.remove('chrome-hidden');
-      clearTimeout(state.chromeTimer);
-    }
+    document.querySelectorAll('#fullscreenBtnD i, #fullscreenBtnM i')
+      .forEach(ic => ic.setAttribute('data-lucide', state.fullscreen ? 'minimize' : 'maximize'));
+    if (window.lucide) lucide.createIcons();
   });
 
-  // Muestra el chrome al mover/scroll/tocar
-  ['mousemove', 'mousedown', 'wheel'].forEach(evt =>
-    document.addEventListener(evt, showChrome, { passive: true }));
-  document.addEventListener('touchstart', showChrome, { passive: true });
-  mainArea.addEventListener('scroll', showChrome, { passive: true });
-
-  /* ============================================================
-   *  ATAJOS DE TECLADO
-   * ============================================================ */
-  document.addEventListener('keydown', (e) => {
+  document.addEventListener('keydown', e => {
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
-
-    // Ctrl / Cmd
     if (e.ctrlKey || e.metaKey) {
-      if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomIn();  return; }
-      if (e.key === '-')                  { e.preventDefault(); zoomOut(); return; }
-      if (e.key === '0')                  { e.preventDefault(); applyScale(1, 'custom'); return; }
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomIn(); return; }
+      if (e.key === '-') { e.preventDefault(); zoomOut(); return; }
+      if (e.key === '0') { e.preventDefault(); applyScale(1,'custom'); return; }
       return;
     }
-
     switch (e.key) {
-      case 'ArrowRight': case 'PageDown': case ' ':
-        e.preventDefault(); nextPage(); break;
-      case 'ArrowLeft': case 'PageUp':
-        e.preventDefault(); prevPage(); break;
-      case 'ArrowDown':
-        mainArea.scrollBy({ top: 120, behavior: 'smooth' }); e.preventDefault(); break;
-      case 'ArrowUp':
-        mainArea.scrollBy({ top: -120, behavior: 'smooth' }); e.preventDefault(); break;
-      case '+': case '=': zoomIn();  break;
+      case 'ArrowRight': case 'PageDown': case ' ': e.preventDefault(); nextPage(); break;
+      case 'ArrowLeft': case 'PageUp': e.preventDefault(); prevPage(); break;
+      case 'ArrowDown': e.preventDefault(); main.scrollBy({ top: 120, behavior: 'smooth' }); break;
+      case 'ArrowUp':   e.preventDefault(); main.scrollBy({ top: -120, behavior: 'smooth' }); break;
+      case '+': case '=': zoomIn(); break;
       case '-': case '_': zoomOut(); break;
       case 'f': case 'F': toggleFullscreen(); break;
       case 'Home': goToPage(1); break;
-      case 'End':  if (state.pdf) goToPage(state.pdf.numPages); break;
+      case 'End': if (state.pdf) goToPage(state.pdf.numPages); break;
+      case 'Escape': if (sheet.classList.contains('open')) closeSheet(); break;
     }
   });
 
-  /* ============================================================
-   *  GESTOS TÁCTILES (swipe horizontal = cambiar página)
-   * ============================================================ */
-  mainArea.addEventListener('touchstart', (e) => {
+  /* Swipe */
+  main.addEventListener('touchstart', e => {
     if (e.touches.length !== 1) return;
     state.touch.x = e.touches[0].clientX;
     state.touch.y = e.touches[0].clientY;
-    state.touch.t = Date.now();
-    state.touch.active = true;
+    state.touch.t = Date.now(); state.touch.active = true;
   }, { passive: true });
-
-  mainArea.addEventListener('touchend', (e) => {
+  main.addEventListener('touchend', e => {
     if (!state.touch.active) return;
     state.touch.active = false;
-
     const t = e.changedTouches[0];
     const dx = t.clientX - state.touch.x;
     const dy = t.clientY - state.touch.y;
     const dt = Date.now() - state.touch.t;
-
-    // Solo si es rápido, mayormente horizontal, y con desplazamiento suficiente
-    if (dt > 600) return;
-    if (Math.abs(dx) < 60) return;
-    if (Math.abs(dx) < Math.abs(dy) * 1.5) return;
-
-    if (dx < 0) nextPage();
-    else        prevPage();
+    if (dt > 600 || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    dx < 0 ? nextPage() : prevPage();
   }, { passive: true });
 
-  /* ============================================================
-   *  DRAG & DROP
-   * ============================================================ */
-  let dragCounter = 0;
-  document.addEventListener('dragenter', (e) => {
-    e.preventDefault();
-    dragCounter++;
-    show(dropOverlay, true);
-  });
-  document.addEventListener('dragleave', (e) => {
-    e.preventDefault();
-    dragCounter = Math.max(0, dragCounter - 1);
-    if (dragCounter === 0) show(dropOverlay, false);
-  });
-  document.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-  });
-  document.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dragCounter = 0;
-    show(dropOverlay, false);
-    const file = e.dataTransfer?.files?.[0];
-    if (file) loadPDF(file);
+  /* Drag & drop */
+  let dragCount = 0;
+  document.addEventListener('dragenter', e => { e.preventDefault(); dragCount++; dropOverlay.hidden = false; });
+  document.addEventListener('dragleave', e => { e.preventDefault(); dragCount = Math.max(0, dragCount-1); if (dragCount === 0) dropOverlay.hidden = true; });
+  document.addEventListener('dragover', e => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; });
+  document.addEventListener('drop', e => {
+    e.preventDefault(); dragCount = 0; dropOverlay.hidden = true;
+    const f = e.dataTransfer?.files?.[0]; if (f) loadPDF(f);
   });
 
-  /* ============================================================
-   *  EVENTOS
-   * ============================================================ */
-  fileInput.addEventListener('change', (e) => {
-    const file = e.target.files?.[0];
-    if (file) loadPDF(file);
-    e.target.value = ''; // permite recargar el mismo archivo
-  });
-
-  $('prevBtn').addEventListener('click', prevPage);
-  $('nextBtn').addEventListener('click', nextPage);
-  $('prevBtnM').addEventListener('click', prevPage);
-  $('nextBtnM').addEventListener('click', nextPage);
-
-  pageInput.addEventListener('change', () => {
-    const v = parseInt(pageInput.value, 10);
-    if (state.pdf && v >= 1 && v <= state.pdf.numPages) goToPage(v);
-    else pageInput.value = state.page;
-  });
-  pageInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); pageInput.blur(); }
-  });
-
-  $('zoomIn').addEventListener('click', zoomIn);
-  $('zoomOut').addEventListener('click', zoomOut);
-  $('fitBtn').addEventListener('click', fitToWidth);
-  zoomLevel.addEventListener('click', fitToWidth);
-  zoomLevel.addEventListener('dblclick', fitToPage);
-
-  fullscreenBtn.addEventListener('click', toggleFullscreen);
-
-  document.querySelectorAll('.theme-switcher button').forEach(btn => {
-    btn.addEventListener('click', () => setTheme(btn.dataset.theme));
-  });
-
-  // Reajustar al redimensionar si estamos en modo "fit"
+  /* Resize */
   let resizeTimer = null;
   window.addEventListener('resize', () => {
-    if (!state.pdf) return;
-    if (state.fitMode !== 'width' && state.fitMode !== 'page') return;
+    if (!state.pdf || state.fitMode !== 'width') return;
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      state.fitMode === 'page' ? fitToPage() : fitToWidth();
-    }, 140);
+    resizeTimer = setTimeout(fitWidth, 140);
   });
 
-  /* ============================================================
-   *  INIT
-   * ============================================================ */
+  /* ============ INIT ============ */
   function init() {
-    // Detecta el tema inicial (ya aplicado por el script inline)
-    const initial = document.documentElement.classList.contains('theme-dark') ? 'dark'
-                  : document.documentElement.classList.contains('theme-epaper') ? 'epaper'
-                  : 'normal';
-    setTheme(initial);
-
-    updateZoomLabel();
+    setTheme(state.theme);
+    updateZoomUI();
     updatePageUI();
-
     if (window.lucide) lucide.createIcons();
   }
-
-  // Arranca cuando el DOM esté listo
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
 </script>
 </body>
