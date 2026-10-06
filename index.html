@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#f3f4f6" id="themeColorMeta">
 <title>PaperReader · Lector PDF</title>
 
-<!-- Anti-FOUC -->
+<!-- Anti-FOUC: aplica el tema guardado antes de pintar -->
 <script>
   (function(){
     try {
@@ -32,6 +32,9 @@
 html,body{margin:0;height:100%}
 button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
 input{font:inherit}
+
+/* FIX: fuerza que [hidden] gane sobre cualquier display personalizado */
+[hidden]{display:none !important}
 
 /* ============ TEMAS ============ */
 html{
@@ -89,7 +92,7 @@ html[data-theme="epaper"] body::before{
 .brand-info{display:flex; flex-direction:column; line-height:1.15; min-width:0; flex:1}
 .brand-title{font-weight:700; font-size:13px; display:none}
 .brand-filename{
-  font-size:12px; color:var(--text-2);
+  font-size:13px; color:var(--text-2);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
 }
 @media (min-width:640px){
@@ -160,29 +163,31 @@ html[data-theme="epaper"] body::before{
 /* ============ MAIN ============ */
 .main{
   flex:1; position:relative; overflow:auto;
-  display:flex; justify-content:center; align-items:flex-start;
+  display:flex; flex-direction:column; align-items:center;
   padding:16px; z-index:2; -webkit-overflow-scrolling:touch;
 }
 @media (min-width:640px){.main{padding:24px}}
 @media (min-width:1024px){.main{padding:32px}}
 
+/* FIX: canvas oculto por defecto; se le da fondo solo cuando está visible */
 #canvas{
   display:block; border-radius:4px;
   box-shadow:var(--shadow); filter:var(--canvas-filter);
   transition:filter .3s,box-shadow .3s;
-  background:var(--canvas-bg); max-width:100%; height:auto;
+  background:transparent; max-width:100%; height:auto;
+  flex-shrink:0;
 }
+#canvas:not([hidden]){ background:var(--canvas-bg); }
 
-/* ============ EMPTY STATE ============ */
+/* ============ EMPTY STATE (FIX: ya no usa position:absolute) ============ */
 .empty{
-  position:absolute; inset:0;
+  width:100%;
   display:flex; flex-direction:column; align-items:center;
-  padding:16px; overflow-y:auto;
+  padding:16px 0 40px;
 }
 .empty-inner{
   width:100%; max-width:480px;
   display:flex; flex-direction:column; gap:22px;
-  padding:12px 0 40px;
 }
 .empty h1{font-size:20px; font-weight:700; margin:0; text-align:center}
 .empty .subtitle{text-align:center; color:var(--text-2); font-size:13px; margin:6px 0 0}
@@ -675,7 +680,7 @@ html[data-theme="epaper"] body::before{
     $('prevBtnD').disabled = first; $('nextBtnD').disabled = last;
     $('pageCurM').textContent = p; $('pageTotM').textContent = total;
     $('prevBtnM').disabled = first; $('nextBtnM').disabled = last;
-    const piM = $('pageInputM'); if (piM) piM.value = p;
+    const piM = $('pageInputM'); if (piM && document.activeElement !== piM) piM.value = p;
   }
 
   /* ============ ZOOM ============ */
@@ -724,6 +729,8 @@ html[data-theme="epaper"] body::before{
 
       filename.textContent = file.name;
       filename.title = file.name;
+
+      // FIX: usa [hidden] explícitamente (ahora sí funciona gracias al !important)
       emptyState.hidden = true;
       canvas.hidden = false;
       bottomNav.hidden = false;
