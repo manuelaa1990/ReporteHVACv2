@@ -1,500 +1,954 @@
-```html
 <!DOCTYPE html>
-<html lang="es" class="h-full">
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lector PDF E-Paper & Modo Oscuro</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f3f4f6" id="themeMeta">
+<meta name="description" content="Lector PDF minimalista con modo E-Paper y oscuro.">
+<title>PaperReader · Lector PDF</title>
 
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+<!-- Anti-FOUC: aplica el tema guardado antes de pintar -->
+<script>
+  (function () {
+    var t = 'normal';
+    try { t = localStorage.getItem('paperreader-theme') || 'normal'; } catch (e) {}
+    if (['normal', 'epaper', 'dark'].indexOf(t) === -1) t = 'normal';
+    document.documentElement.classList.add('theme-' + t);
+  })();
+</script>
 
-    <!-- PDF.js CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
 
-    <script>
-        // Configurar worker de PDF.js
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+<style>
+  /* ---------- Reset ligero ---------- */
+  * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
 
-        // Personalización de temas en Tailwind
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        epaper: {
-                            bg: '#f5f2eb',
-                            card: '#e8e3d5',
-                            text: '#1a1918',
-                            border: '#d4cebe',
-                            accent: '#4a463d'
-                        }
-                    },
-                    fontFamily: {
-                        serif: ['Georgia', 'Cambria', 'serif'],
-                        sans: ['Inter', 'system-ui', 'sans-serif']
-                    }
-                }
-            }
-        };
-    </script>
+  /* ---------- Variables por tema ---------- */
+  :root {
+    --bg: #f3f4f6;
+    --surface: #ffffff;
+    --surface-2: #f9fafb;
+    --text: #111827;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --accent: #d97706;
+    --accent-fg: #ffffff;
+    --page-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.22);
+    --canvas-filter: none;
+    --meta-color: #f3f4f6;
+  }
+  html.theme-epaper {
+    --bg: #ece4d3;
+    --surface: #f7f1e1;
+    --surface-2: #efe7d2;
+    --text: #2a2416;
+    --text-muted: #6b6353;
+    --border: #d6cbb3;
+    --accent: #8a6a2b;
+    --accent-fg: #ffffff;
+    --page-shadow: 0 8px 24px -10px rgba(60, 50, 30, 0.28);
+    --canvas-filter: sepia(0.18) contrast(1.05) brightness(0.98) saturate(0.85);
+    --meta-color: #ece4d3;
+  }
+  html.theme-dark {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface-2: #1c1c1c;
+    --text: #d6d6d6;
+    --text-muted: #8a8a8a;
+    --border: #262626;
+    --accent: #fbbf24;
+    --accent-fg: #141414;
+    --page-shadow: 0 12px 34px -12px rgba(0, 0, 0, 0.85);
+    --canvas-filter: invert(0.92) hue-rotate(180deg) contrast(1.05);
+    --meta-color: #0a0a0a;
+  }
 
-    <style>
-        /* Estilos específicos para la textura y renderizado del E-Paper */
-        .theme-epaper {
-            background-color: #f4f0e6 !important;
-            color: #111111 !important;
-            background-image: radial-gradient(#e2dcd0 0.75px, transparent 0.75px);
-            background-size: 12px 12px;
-        }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    transition: background-color 0.35s ease, color 0.35s ease;
+    display: flex;
+    flex-direction: column;
+  }
 
-        .theme-epaper .viewer-container {
-            background-color: #f4f0e6;
-        }
+  /* Textura de papel (solo e-paper) */
+  html.theme-epaper body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(rgba(120, 100, 60, 0.09) 0.8px, transparent 0.8px);
+    background-size: 3px 3px;
+    z-index: 0;
+    opacity: 0.55;
+    mix-blend-mode: multiply;
+  }
 
-        .theme-epaper .pdf-page-canvas {
-            /* Efecto tinta electrónica: ligeramente sepia y alto contraste suave */
-            filter: sepia(20%) contrast(115%) brightness(98%);
-            box-shadow: 0 4px 20px -2px rgba(60, 50, 30, 0.15);
-        }
+  /* ---------- Header ---------- */
+  .app-header {
+    position: relative;
+    z-index: 30;
+    flex: 0 0 auto;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.75rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    transition: transform 0.32s cubic-bezier(0.2, 0.7, 0.2, 1),
+                background-color 0.35s ease,
+                border-color 0.35s ease;
+  }
+  body.chrome-hidden .app-header { transform: translateY(-100%); }
 
-        /* Estilos específicos para el Modo Oscuro */
-        .theme-dark {
-            background-color: #121212 !important;
-            color: #e0e0e0 !important;
-        }
+  /* ---------- Botones ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    height: 36px;
+    padding: 0 0.7rem;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid transparent;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  }
+  .btn:hover { background: var(--surface-2); color: var(--text); }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn-icon { width: 36px; padding: 0; }
+  .btn svg { width: 18px; height: 18px; stroke-width: 2; }
 
-        .theme-dark .pdf-page-canvas {
-            /* Invertir colores del PDF para que el texto sea blanco y fondo oscuro */
-            filter: invert(90%) hue-rotate(180deg) contrast(110%);
-            box-shadow: 0 4px 25px -2px rgba(0, 0, 0, 0.7);
-        }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--accent-fg);
+    padding: 0 0.9rem;
+    border-color: transparent;
+  }
+  .btn-primary:hover { filter: brightness(1.08); color: var(--accent-fg); }
 
-        /* Estilo Normal */
-        .theme-normal {
-            background-color: #f3f4f6;
-            color: #1f2937;
-        }
+  /* ---------- Indicador de página ---------- */
+  .page-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.2rem 0.35rem;
+    font-size: 0.8rem;
+    color: var(--text);
+  }
+  .page-indicator input {
+    width: 38px;
+    text-align: center;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    -moz-appearance: textfield;
+  }
+  .page-indicator input::-webkit-outer-spin-button,
+  .page-indicator input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .page-indicator .sep { color: var(--text-muted); font-weight: 400; }
 
-        .theme-normal .pdf-page-canvas {
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-        }
+  /* ---------- Selector de tema ---------- */
+  .theme-switcher {
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .theme-switcher button {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .theme-switcher button:hover { color: var(--text); }
+  .theme-switcher button.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  html.theme-dark .theme-switcher button.active { box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+  .theme-switcher svg { width: 16px; height: 16px; }
 
-        /* Transiciones suaves */
-        .theme-transition {
-            transition: background-color 0.3s ease, color 0.3s ease, filter 0.3s ease;
-        }
+  /* ---------- Área principal ---------- */
+  .app-main {
+    position: relative;
+    flex: 1 1 auto;
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 1rem;
+    scroll-behavior: smooth;
+    z-index: 1;
+  }
+  @media (min-width: 640px) { .app-main { padding: 2rem; } }
+  @media (min-width: 1024px) { .app-main { padding: 3rem; } }
 
-        /* Ocultar barra de desplazamiento manteniendo funcionalidad */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-    </style>
+  /* ---------- Canvas ---------- */
+  #canvas {
+    display: block;
+    border-radius: 6px;
+    box-shadow: var(--page-shadow);
+    filter: var(--canvas-filter);
+    transition: filter 0.35s ease, box-shadow 0.35s ease;
+    background: #fff;
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* ---------- Zona de carga ---------- */
+  .drop-zone {
+    position: absolute;
+    inset: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border: 2px dashed var(--border);
+    border-radius: 20px;
+    padding: 2rem;
+    background: var(--surface);
+    transition: border-color 0.25s ease, background 0.25s ease;
+    z-index: 2;
+  }
+  .drop-zone:hover { border-color: var(--accent); }
+  .drop-zone h2 { margin: 1rem 0 0.35rem; font-size: 1.15rem; font-weight: 700; }
+  .drop-zone p { margin: 0 0 1.5rem; color: var(--text-muted); font-size: 0.85rem; max-width: 34ch; }
+  .drop-icon {
+    width: 64px; height: 64px;
+    display: grid; place-items: center;
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent);
+  }
+  .drop-icon svg { width: 30px; height: 30px; }
+
+  /* ---------- Overlay al arrastrar ---------- */
+  .drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    backdrop-filter: blur(6px);
+    border: 3px dashed var(--accent);
+    color: var(--text);
+    font-size: 1.25rem;
+    font-weight: 600;
+    pointer-events: none;
+  }
+  .drop-overlay.hidden { display: none; }
+
+  /* ---------- Loading ---------- */
+  .loading {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: grid;
+    place-items: center;
+    background: color-mix(in srgb, var(--bg) 75%, transparent);
+    backdrop-filter: blur(8px);
+    gap: 0.75rem;
+    transition: opacity 0.2s ease;
+  }
+  .loading.hidden { display: none; }
+  .loading-inner { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading p { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+
+  /* ---------- Nav móvil flotante ---------- */
+  .mobile-nav {
+    position: fixed;
+    bottom: max(1.25rem, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 25;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.4);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+  }
+  .mobile-nav button {
+    width: 40px; height: 40px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .mobile-nav button:disabled { opacity: 0.3; }
+  .mobile-nav span {
+    font-size: 0.8rem;
+    font-weight: 600;
+    min-width: 60px;
+    text-align: center;
+  }
+  body.chrome-hidden .mobile-nav { opacity: 0; transform: translate(-50%, 20px); pointer-events: none; }
+
+  /* ---------- Utilidades ---------- */
+  .hidden { display: none !important; }
+  @media (min-width: 768px) { .md\:flex { display: flex !important; } }
+
+  /* Scrollbar minimalista */
+  .app-main::-webkit-scrollbar { width: 10px; height: 10px; }
+  .app-main::-webkit-scrollbar-track { background: transparent; }
+  .app-main::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--text-muted) 35%, transparent);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+
+  /* Transición suave al cambiar el filtro del canvas */
+  #canvas { will-change: filter; }
+</style>
 </head>
-<body class="h-full flex flex-col font-sans theme-normal theme-transition overflow-hidden selection:bg-amber-200 selection:text-amber-900" id="appBody">
 
-    <header id="mainHeader" class="h-16 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between px-4 z-20 shadow-sm transition-colors duration-300">
-        <!-- Logo y Nombre -->
-        <div class="flex items-center space-x-3">
-            <div class="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                <i data-lucide="book-open" class="w-6 h-6"></i>
-            </div>
-            <div>
-                <h1 class="font-bold text-lg leading-none">PaperReader</h1>
-                <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Lector PDF Inteligente</span>
-            </div>
+<body>
+  <!-- ============ HEADER ============ -->
+  <header class="app-header">
+    <!-- Logo -->
+    <div style="display:flex; align-items:center; gap:0.6rem; min-width:0;">
+      <div style="width:34px; height:34px; display:grid; place-items:center; border-radius:10px;
+                  background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent);">
+        <i data-lucide="book-open" style="width:18px;height:18px;"></i>
+      </div>
+      <div style="min-width:0; line-height:1.1;">
+        <div style="font-weight:700; font-size:0.9rem;">PaperReader</div>
+        <div id="fileInfo" style="font-size:0.7rem; color:var(--text-muted); white-space:nowrap;
+                                  overflow:hidden; text-overflow:ellipsis; max-width:180px;">
+          Sin documento
         </div>
+      </div>
+    </div>
 
-        <!-- Controles Centrales: Navegación y Zoom -->
-        <div id="controlsBar" class="hidden md:flex items-center space-x-2 bg-gray-100 dark:bg-gray-800/80 p-1.5 rounded-xl border border-gray-200/80 dark:border-gray-700/50">
-            <!-- Paginación -->
-            <div class="flex items-center space-x-1 pr-2 border-r border-gray-300 dark:border-gray-700">
-                <button id="prevPage" title="Página Anterior" class="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-200 transition disabled:opacity-30">
-                    <i data-lucide="chevron-left" class="w-5 h-5"></i>
-                </button>
-                <div class="flex items-center text-sm font-medium px-2">
-                    <input type="number" id="pageNumInput" value="1" min="1" class="w-12 text-center bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md py-0.5 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
-                    <span class="mx-1 text-gray-400">/</span>
-                    <span id="pageCount">0</span>
-                </div>
-                <button id="nextPage" title="Siguiente Página" class="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-200 transition disabled:opacity-30">
-                    <i data-lucide="chevron-right" class="w-5 h-5"></i>
-                </button>
-            </div>
+    <!-- Controles centrales (nav + zoom) -->
+    <div id="centerControls" class="hidden" style="flex:1; display:flex; align-items:center;
+                                                   justify-content:center; gap:0.5rem;">
+      <button id="prevBtn" class="btn btn-icon" aria-label="Página anterior">
+        <i data-lucide="chevron-left"></i>
+      </button>
+      <div class="page-indicator">
+        <input id="pageInput" type="number" min="1" value="1" aria-label="Número de página">
+        <span class="sep">/</span>
+        <span id="pageTotal" style="padding-right:0.35rem;">0</span>
+      </div>
+      <button id="nextBtn" class="btn btn-icon" aria-label="Página siguiente">
+        <i data-lucide="chevron-right"></i>
+      </button>
 
-            <!-- Zoom -->
-            <div class="flex items-center space-x-1 pl-1">
-                <button id="zoomOut" title="Reducir Zoom" class="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-200 transition">
-                    <i data-lucide="zoom-out" class="w-5 h-5"></i>
-                </button>
-                <span id="zoomVal" class="text-xs font-semibold w-12 text-center text-gray-600 dark:text-gray-300">100%</span>
-                <button id="zoomIn" title="Aumentar Zoom" class="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-200 transition">
-                    <i data-lucide="zoom-in" class="w-5 h-5"></i>
-                </button>
-                <button id="fitWidth" title="Ajustar Ancho" class="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-200 transition ml-1">
-                    <i data-lucide="maximize-2" class="w-4 h-4"></i>
-                </button>
-            </div>
-        </div>
+      <div style="width:1px; height:20px; background:var(--border); margin:0 0.25rem;"></div>
 
-        <!-- Acciones Derecha: Modos de Vista y Cargar PDF -->
-        <div class="flex items-center space-x-2">
-            <!-- Selector de Modos -->
-            <div class="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700" id="themeSelector">
-                <button id="btnThemeNormal" title="Modo Normal" class="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center space-x-1.5 transition active-theme bg-white text-gray-900 shadow-sm">
-                    <i data-lucide="sun" class="w-4 h-4 text-amber-500"></i>
-                    <span class="hidden sm:inline">Normal</span>
-                </button>
-                <button id="btnThemeEPaper" title="Modo E-Paper (Tinta Electrónica)" class="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center space-x-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 transition">
-                    <i data-lucide="tablet" class="w-4 h-4 text-emerald-700"></i>
-                    <span class="hidden sm:inline">E-Paper</span>
-                </button>
-                <button id="btnThemeDark" title="Modo Oscuro" class="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center space-x-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 transition">
-                    <i data-lucide="moon" class="w-4 h-4 text-indigo-400"></i>
-                    <span class="hidden sm:inline">Oscuro</span>
-                </button>
-            </div>
+      <button id="zoomOut" class="btn btn-icon" aria-label="Reducir zoom">
+        <i data-lucide="zoom-out"></i>
+      </button>
+      <button id="zoomLevel" class="btn" style="min-width:60px; justify-content:center;
+                                                 font-variant-numeric: tabular-nums;"
+              title="Clic para ajustar al ancho">100%</button>
+      <button id="zoomIn" class="btn btn-icon" aria-label="Aumentar zoom">
+        <i data-lucide="zoom-in"></i>
+      </button>
+      <button id="fitBtn" class="btn btn-icon" aria-label="Ajustar al ancho">
+        <i data-lucide="maximize-2"></i>
+      </button>
+    </div>
 
-            <!-- Botón Abrir Archivo -->
-            <label for="pdfFileInput" class="cursor-pointer bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white px-4 py-2 rounded-xl text-xs font-medium flex items-center space-x-2 shadow-sm transition">
-                <i data-lucide="upload-cloud" class="w-4 h-4"></i>
-                <span class="hidden sm:inline">Subir PDF</span>
-            </label>
-            <input type="file" id="pdfFileInput" accept="application/pdf" class="hidden">
-        </div>
-    </header>
+    <!-- Acciones derecha -->
+    <div style="display:flex; align-items:center; gap:0.4rem;">
+      <!-- Selector de tema -->
+      <div class="theme-switcher" role="tablist" aria-label="Tema">
+        <button data-theme="normal" title="Claro" aria-label="Tema claro">
+          <i data-lucide="sun"></i>
+        </button>
+        <button data-theme="epaper" title="E-Paper" aria-label="Tema e-paper">
+          <i data-lucide="book-text"></i>
+        </button>
+        <button data-theme="dark" title="Oscuro" aria-label="Tema oscuro">
+          <i data-lucide="moon"></i>
+        </button>
+      </div>
 
-    <main class="flex-1 relative overflow-hidden flex flex-col items-center justify-center">
-        
-        <!-- Vista vacía / Drop Zone -->
-        <div id="uploadPlaceholder" class="max-w-md w-full mx-4 p-8 bg-white dark:bg-gray-800 rounded-3xl border-2 border-dashed border-gray-300 dark:border-gray-700 text-center shadow-lg transition-all hover:border-amber-500">
-            <div class="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <i data-lucide="file-up" class="w-8 h-8"></i>
-            </div>
-            <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">Cargar documento PDF</h3>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-6">Selecciona un archivo PDF para disfrutar de una lectura cómoda y optimizada.</p>
-            
-            <label for="pdfFileInput" class="inline-flex items-center justify-center px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-medium text-sm cursor-pointer shadow-md transition space-x-2">
-                <i data-lucide="file-plus" class="w-4 h-4"></i>
-                <span>Seleccionar Archivo</span>
-            </label>
-        </div>
+      <button id="fullscreenBtn" class="btn btn-icon" title="Pantalla completa (F)" aria-label="Pantalla completa">
+        <i data-lucide="maximize"></i>
+      </button>
 
-        <!-- Indicador de Carga -->
-        <div id="loadingSpinner" class="hidden absolute inset-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm flex flex-col items-center justify-center z-30">
-            <div class="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-            <p class="text-sm font-semibold text-gray-700 dark:text-gray-200" id="loadingText">Procesando PDF...</p>
-        </div>
+      <label for="fileInput" class="btn btn-primary" title="Abrir PDF">
+        <i data-lucide="upload"></i>
+        <span style="display:none;" class="md:inline">Abrir</span>
+      </label>
+      <input type="file" id="fileInput" accept="application/pdf,.pdf" hidden>
+    </div>
+  </header>
 
-        <!-- Lector de PDF (Contenedor con Scroll) -->
-        <div id="pdfViewerContainer" class="hidden w-full h-full overflow-auto p-4 sm:p-8 flex justify-center items-start viewer-container relative">
-            <div id="canvasWrapper" class="relative transition-all duration-200">
-                <canvas id="pdfCanvas" class="pdf-page-canvas rounded-lg transition-all duration-300 block"></canvas>
-            </div>
-        </div>
+  <!-- ============ MAIN ============ -->
+  <main class="app-main" id="mainArea">
+    <!-- Drop zone (visible sin PDF) -->
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon"><i data-lucide="file-text"></i></div>
+      <h2>Abre un PDF para empezar</h2>
+      <p>Arrastra el archivo aquí o selecciónalo desde tu dispositivo. Todo el procesamiento ocurre en tu navegador.</p>
+      <label for="fileInput" class="btn btn-primary" style="height:40px; padding:0 1.1rem;">
+        <i data-lucide="folder-open"></i>
+        <span>Seleccionar PDF</span>
+      </label>
+    </div>
 
-        <!-- Barra flotante de navegación móvil -->
-        <div id="mobileControls" class="hidden md:hidden absolute bottom-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-full shadow-2xl items-center space-x-4 z-20">
-            <button id="prevPageMobile" class="p-2 text-gray-700 dark:text-gray-200">
-                <i data-lucide="chevron-left" class="w-5 h-5"></i>
-            </button>
-            <span class="text-xs font-medium text-gray-600 dark:text-gray-300">
-                <span id="pageNumMobile">1</span> / <span id="pageCountMobile">0</span>
-            </span>
-            <button id="nextPageMobile" class="p-2 text-gray-700 dark:text-gray-200">
-                <i data-lucide="chevron-right" class="w-5 h-5"></i>
-            </button>
-        </div>
-    </main>
+    <!-- Canvas del PDF -->
+    <canvas id="canvas" class="hidden" aria-label="Página del PDF"></canvas>
+  </main>
 
-    <script>
-        // Variables de estado del Lector
-        let pdfDoc = null;
-        let pageNum = 1;
-        let pageRendering = false;
-        let pageNumPending = null;
-        let scale = 1.2;
-        let currentTheme = 'normal'; // 'normal', 'epaper', 'dark'
+  <!-- ============ NAV MÓVIL ============ -->
+  <div class="mobile-nav hidden" id="mobileNav">
+    <button id="prevBtnM" aria-label="Anterior"><i data-lucide="chevron-left"></i></button>
+    <span><span id="pageCurM">1</span> / <span id="pageTotM">0</span></span>
+    <button id="nextBtnM" aria-label="Siguiente"><i data-lucide="chevron-right"></i></button>
+  </div>
 
-        // Referencias a elementos del DOM
-        const canvas = document.getElementById('pdfCanvas');
-        const ctx = canvas.getContext('2d');
-        const pdfFileInput = document.getElementById('pdfFileInput');
-        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
-        const pdfViewerContainer = document.getElementById('pdfViewerContainer');
-        const controlsBar = document.getElementById('controlsBar');
-        const mobileControls = document.getElementById('mobileControls');
-        const loadingSpinner = document.getElementById('loadingSpinner');
-        const appBody = document.getElementById('appBody');
+  <!-- ============ OVERLAYS ============ -->
+  <div class="drop-overlay hidden" id="dropOverlay">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
+      <i data-lucide="download" style="width:42px;height:42px;color:var(--accent);"></i>
+      <span>Suelta el PDF aquí</span>
+    </div>
+  </div>
 
-        // Referencias a botones de temas
-        const btnNormal = document.getElementById('btnThemeNormal');
-        const btnEPaper = document.getElementById('btnThemeEPaper');
-        const btnDark = document.getElementById('btnThemeDark');
+  <div class="loading hidden" id="loading">
+    <div class="loading-inner">
+      <div class="spinner"></div>
+      <p id="loadingText">Cargando…</p>
+    </div>
+  </div>
 
-        // Inicializar Iconos Lucide
-        lucide.createIcons();
+<script>
+(() => {
+  'use strict';
 
-        /**
-         * Renderiza la página actual del documento PDF
-         */
-        function renderPage(num) {
-            pageRendering = true;
-            showLoading(true, "Renderizando página...");
+  /* ============================================================
+   *  CONSTANTES
+   * ============================================================ */
+  const MIN_SCALE   = 0.25;
+  const MAX_SCALE   = 4.0;
+  const SCALE_STEP  = 0.2;
+  const DPR_CAP     = 2;                 // evita canvas gigantes en móvil
+  const THEME_KEY   = 'paperreader-theme';
+  const CHROME_HIDE_MS = 2600;           // auto-ocultar header en fullscreen
 
-            pdfDoc.getPage(num).then(function(page) {
-                const viewport = page.getViewport({ scale: scale });
-                
-                // Ajustar resolución de Canvas para pantallas High-DPI (Retina)
-                const outputScale = window.devicePixelRatio || 1;
+  /* ============================================================
+   *  ESTADO
+   * ============================================================ */
+  const state = {
+    pdf: null,
+    page: 1,
+    scale: 1,
+    fitMode: 'width',        // 'width' | 'page' | 'custom'
+    rendering: false,
+    pending: null,
+    renderTask: null,
+    token: 0,
+    theme: 'normal',
+    fullscreen: false,
+    chromeTimer: null,
+    touch: { x: 0, y: 0, t: 0, active: false }
+  };
 
-                canvas.width = Math.floor(viewport.width * outputScale);
-                canvas.height = Math.floor(viewport.height * outputScale);
-                canvas.style.width = Math.floor(viewport.width) + "px";
-                canvas.style.height = Math.floor(viewport.height) + "px";
+  /* ============================================================
+   *  DOM
+   * ============================================================ */
+  const $ = (id) => document.getElementById(id);
 
-                const transform = outputScale !== 1 
-                    ? [outputScale, 0, 0, outputScale, 0, 0] 
-                    : null;
+  const canvas        = $('canvas');
+  const ctx           = canvas.getContext('2d', { alpha: false });
+  const dropZone      = $('dropZone');
+  const mainArea      = $('mainArea');
+  const fileInput     = $('fileInput');
+  const fileInfo      = $('fileInfo');
+  const centerControls= $('centerControls');
+  const mobileNav     = $('mobileNav');
+  const loading       = $('loading');
+  const loadingText   = $('loadingText');
+  const dropOverlay   = $('dropOverlay');
+  const pageInput     = $('pageInput');
+  const pageTotal     = $('pageTotal');
+  const pageCurM      = $('pageCurM');
+  const pageTotM      = $('pageTotM');
+  const zoomLevel     = $('zoomLevel');
+  const fullscreenBtn = $('fullscreenBtn');
+  const themeMeta     = $('themeMeta');
 
-                const renderContext = {
-                    canvasContext: ctx,
-                    transform: transform,
-                    viewport: viewport
-                };
+  /* ============================================================
+   *  UTILIDADES UI
+   * ============================================================ */
+  const show = (el, yes = true) => el.classList.toggle('hidden', !yes);
 
-                const renderTask = page.render(renderContext);
+  function setLoading(on, text) {
+    if (text) loadingText.textContent = text;
+    show(loading, on);
+  }
 
-                renderTask.promise.then(function() {
-                    pageRendering = false;
-                    showLoading(false);
+  function updateZoomLabel() {
+    zoomLevel.textContent = Math.round(state.scale * 100) + '%';
+  }
 
-                    if (pageNumPending !== null) {
-                        renderPage(pageNumPending);
-                        pageNumPending = null;
-                    }
-                });
-            });
+  function updatePageUI() {
+    const total = state.pdf ? state.pdf.numPages : 0;
+    pageInput.value = state.page;
+    pageTotal.textContent = total;
+    pageCurM.textContent = state.page;
+    pageTotM.textContent = total;
 
-            // Actualizar indicadores de página
-            document.getElementById('pageNumInput').value = num;
-            document.getElementById('pageNumMobile').textContent = num;
-            updatePaginationButtons();
-        }
+    const first = state.page <= 1;
+    const last  = !state.pdf || state.page >= total;
+    $('prevBtn').disabled = first;
+    $('prevBtnM').disabled = first;
+    $('nextBtn').disabled = last;
+    $('nextBtnM').disabled = last;
+  }
 
-        /**
-         * Encola la representación de una página si otra está en proceso
-         */
-        function queueRenderPage(num) {
-            if (pageRendering) {
-                pageNumPending = num;
-            } else {
-                renderPage(num);
-            }
-        }
+  /* ============================================================
+   *  TEMA
+   * ============================================================ */
+  function setTheme(theme) {
+    if (!['normal', 'epaper', 'dark'].includes(theme)) theme = 'normal';
+    state.theme = theme;
 
-        /**
-         * Cambia a la página anterior
-         */
-        function onPrevPage() {
-            if (pageNum <= 1) return;
-            pageNum--;
-            queueRenderPage(pageNum);
-        }
+    document.documentElement.classList.remove('theme-normal', 'theme-epaper', 'theme-dark');
+    document.documentElement.classList.add('theme-' + theme);
 
-        /**
-         * Cambia a la siguiente página
-         */
-        function onNextPage() {
-            if (pageNum >= pdfDoc.numPages) return;
-            pageNum++;
-            queueRenderPage(pageNum);
-        }
+    document.querySelectorAll('.theme-switcher button').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
 
-        /**
-         * Actualiza estado desactivado/activado de botones de paginación
-         */
-        function updatePaginationButtons() {
-            const isFirst = pageNum <= 1;
-            const isLast = pdfDoc ? pageNum >= pdfDoc.numPages : true;
+    // Actualiza meta theme-color (barra del navegador en móvil)
+    const metaColor = getComputedStyle(document.documentElement)
+      .getPropertyValue('--meta-color').trim();
+    if (metaColor) themeMeta.setAttribute('content', metaColor);
 
-            document.getElementById('prevPage').disabled = isFirst;
-            document.getElementById('nextPage').disabled = isLast;
-            document.getElementById('prevPageMobile').disabled = isFirst;
-            document.getElementById('nextPageMobile').disabled = isLast;
-        }
+    try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+  }
 
-        /**
-         * Carga el archivo PDF seleccionado desde el sistema local
-         */
-        function loadPDF(file) {
-            if (!file || file.type !== 'application/pdf') {
-                alert('Por favor selecciona un archivo PDF válido.');
-                return;
-            }
+  /* ============================================================
+   *  RENDER PDF
+   * ============================================================ */
+  function renderPage(num) {
+    if (!state.pdf) return;
 
-            showLoading(true, "Cargando archivo PDF...");
+    const token = ++state.token;
 
-            const fileReader = new FileReader();
-            fileReader.onload = function() {
-                const typedarray = new Uint8Array(this.result);
+    // Cancela render anterior (evita "canvas in use")
+    if (state.renderTask) {
+      try { state.renderTask.cancel(); } catch (e) {}
+      state.renderTask = null;
+    }
+    state.rendering = true;
 
-                pdfjsLib.getDocument(typedarray).promise.then(function(pdfDoc_) {
-                    pdfDoc = pdfDoc_;
-                    
-                    // Actualizar UI
-                    document.getElementById('pageCount').textContent = pdfDoc.numPages;
-                    document.getElementById('pageCountMobile').textContent = pdfDoc.numPages;
-                    
-                    uploadPlaceholder.classList.add('hidden');
-                    pdfViewerContainer.classList.remove('hidden');
-                    controlsBar.classList.remove('hidden');
-                    controlsBar.classList.add('flex');
-                    mobileControls.classList.remove('hidden');
-                    mobileControls.classList.add('flex');
+    state.pdf.getPage(num)
+      .then(page => {
+        if (token !== state.token) return;
 
-                    pageNum = 1;
-                    renderPage(pageNum);
-                }).catch(function(error) {
-                    showLoading(false);
-                    alert('Error al abrir el PDF: ' + error.message);
-                });
-            };
+        const viewport = page.getViewport({ scale: state.scale });
+        const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
 
-            fileReader.readAsArrayBuffer(file);
-        }
+        canvas.width  = Math.floor(viewport.width  * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
+        canvas.style.width  = Math.floor(viewport.width) + 'px';
+        canvas.style.height = Math.floor(viewport.height) + 'px';
 
-        /**
-         * Cambia el tema visual de la aplicación
-         */
-        function setTheme(theme) {
-            currentTheme = theme;
-            
-            // Limpiar clases de tema
-            appBody.classList.remove('theme-normal', 'theme-epaper', 'theme-dark', 'dark');
-            
-            // Restablecer estilos de botones de tema
-            [btnNormal, btnEPaper, btnDark].forEach(btn => {
-                btn.className = "px-3 py-1.5 rounded-lg text-xs font-medium flex items-center space-x-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 transition";
-            });
-
-            const activeBtnClass = "px-3 py-1.5 rounded-lg text-xs font-medium flex items-center space-x-1.5 transition active-theme bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white";
-
-            if (theme === 'epaper') {
-                appBody.classList.add('theme-epaper');
-                btnEPaper.className = activeBtnClass;
-            } else if (theme === 'dark') {
-                appBody.classList.add('theme-dark', 'dark');
-                btnDark.className = activeBtnClass;
-            } else {
-                appBody.classList.add('theme-normal');
-                btnNormal.className = activeBtnClass;
-            }
-        }
-
-        function zoomIn() {
-            if (scale >= 3.0) return;
-            scale += 0.2;
-            updateZoomDisplay();
-            if (pdfDoc) queueRenderPage(pageNum);
-        }
-
-        function zoomOut() {
-            if (scale <= 0.5) return;
-            scale -= 0.2;
-            updateZoomDisplay();
-            if (pdfDoc) queueRenderPage(pageNum);
-        }
-
-        function fitToWidth() {
-            if (!pdfDoc) return;
-            pdfDoc.getPage(pageNum).then(function(page) {
-                const containerWidth = pdfViewerContainer.clientWidth - 64; // Margen interno
-                const viewport = page.getViewport({ scale: 1.0 });
-                scale = containerWidth / viewport.width;
-                updateZoomDisplay();
-                queueRenderPage(pageNum);
-            });
-        }
-
-        function updateZoomDisplay() {
-            document.getElementById('zoomVal').textContent = `${Math.round(scale * 100)}%`;
-        }
-
-        function showLoading(show, text = "") {
-            if (show) {
-                loadingSpinner.classList.remove('hidden');
-                document.getElementById('loadingText').textContent = text;
-            } else {
-                loadingSpinner.classList.add('hidden');
-            }
-        }
-
-        // Selección de archivo por input
-        pdfFileInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) loadPDF(file);
+        state.renderTask = page.render({
+          canvasContext: ctx,
+          viewport,
+          transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null
         });
 
-        // Soporte Drag and Drop
-        document.body.addEventListener('dragover', (e) => e.preventDefault());
-        document.body.addEventListener('drop', (e) => {
-            e.preventDefault();
-            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                loadPDF(e.dataTransfer.files[0]);
-            }
-        });
+        return state.renderTask.promise;
+      })
+      .then(() => {
+        if (token !== state.token) return;
+        state.rendering = false;
+        state.renderTask = null;
 
-        // Eventos de Paginación
-        document.getElementById('prevPage').addEventListener('click', onPrevPage);
-        document.getElementById('nextPage').addEventListener('click', onNextPage);
-        document.getElementById('prevPageMobile').addEventListener('click', onPrevPage);
-        document.getElementById('nextPageMobile').addEventListener('click', onNextPage);
+        if (state.pending !== null) {
+          const next = state.pending;
+          state.pending = null;
+          renderPage(next);
+        }
+      })
+      .catch(err => {
+        if (token !== state.token) return;
+        state.rendering = false;
+        state.renderTask = null;
+        if (err && err.name === 'RenderingCancelledException') return;
+        console.error('Error al renderizar:', err);
+      });
 
-        // Input de cambio directo de página
-        document.getElementById('pageNumInput').addEventListener('change', function(e) {
-            const val = parseInt(e.target.value);
-            if (pdfDoc && val >= 1 && val <= pdfDoc.numPages) {
-                pageNum = val;
-                queueRenderPage(pageNum);
-            } else {
-                e.target.value = pageNum;
-            }
-        });
+    updatePageUI();
+  }
 
-        // Eventos de Zoom
-        document.getElementById('zoomIn').addEventListener('click', zoomIn);
-        document.getElementById('zoomOut').addEventListener('click', zoomOut);
-        document.getElementById('fitWidth').addEventListener('click', fitToWidth);
+  function queueRender(num) {
+    if (state.rendering) state.pending = num;
+    else renderPage(num);
+  }
 
-        // Eventos de Botones de Tema
-        btnNormal.addEventListener('click', () => setTheme('normal'));
-        btnEPaper.addEventListener('click', () => setTheme('epaper'));
-        btnDark.addEventListener('click', () => setTheme('dark'));
+  /* ============================================================
+   *  NAVEGACIÓN
+   * ============================================================ */
+  function goToPage(num) {
+    if (!state.pdf) return;
+    const total = state.pdf.numPages;
+    num = Math.max(1, Math.min(total, num));
+    if (num === state.page) return;
+    state.page = num;
+    queueRender(num);
+    mainArea.scrollTop = 0;
+  }
 
-        // Atajos de Teclado
-        document.addEventListener('keydown', function(e) {
-            if (!pdfDoc) return;
-            if (e.key === 'ArrowRight' || e.key === 'PageDown') {
-                onNextPage();
-            } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
-                onPrevPage();
-            } else if (e.key === '+' || (e.ctrlKey && e.key === '=')) {
-                e.preventDefault();
-                zoomIn();
-            } else if (e.key === '-' || (e.ctrlKey && e.key === '-')) {
-                e.preventDefault();
-                zoomOut();
-            }
-        });
-    </script>
+  const nextPage = () => goToPage(state.page + 1);
+  const prevPage = () => goToPage(state.page - 1);
+
+  /* ============================================================
+   *  ZOOM / AJUSTE
+   * ============================================================ */
+  function applyScale(value, mode) {
+    const clamped = Math.max(MIN_SCALE, Math.min(MAX_SCALE, value));
+    if (Math.abs(clamped - state.scale) < 0.001 && mode === state.fitMode) return;
+    state.scale = clamped;
+    state.fitMode = mode || 'custom';
+    updateZoomLabel();
+    if (state.pdf) queueRender(state.page);
+  }
+
+  const zoomIn  = () => applyScale(state.scale + SCALE_STEP, 'custom');
+  const zoomOut = () => applyScale(state.scale - SCALE_STEP, 'custom');
+
+  function fitToWidth() {
+    if (!state.pdf) { state.fitMode = 'width'; return; }
+    state.pdf.getPage(state.page).then(page => {
+      const cs = getComputedStyle(mainArea);
+      const available = mainArea.clientWidth
+        - parseFloat(cs.paddingLeft || 0)
+        - parseFloat(cs.paddingRight || 0) - 4;
+      const vp = page.getViewport({ scale: 1 });
+      applyScale(available / vp.width, 'width');
+    });
+  }
+
+  function fitToPage() {
+    if (!state.pdf) { state.fitMode = 'page'; return; }
+    state.pdf.getPage(state.page).then(page => {
+      const cs = getComputedStyle(mainArea);
+      const availW = mainArea.clientWidth - parseFloat(cs.paddingLeft || 0)
+                   - parseFloat(cs.paddingRight || 0) - 4;
+      const availH = mainArea.clientHeight - parseFloat(cs.paddingTop || 0)
+                   - parseFloat(cs.paddingBottom || 0) - 4;
+      const vp = page.getViewport({ scale: 1 });
+      const scale = Math.min(availW / vp.width, availH / vp.height);
+      applyScale(scale, 'page');
+    });
+  }
+
+  /* ============================================================
+   *  CARGA DE PDF
+   * ============================================================ */
+  async function loadPDF(file) {
+    if (!file) return;
+
+    if (typeof pdfjsLib === 'undefined') {
+      alert('No se pudo cargar PDF.js. Revisa tu conexión a internet.');
+      return;
+    }
+    if (!(file.type === 'application/pdf' || /\.pdf$/i.test(file.name))) {
+      alert('Por favor selecciona un archivo PDF.');
+      return;
+    }
+
+    setLoading(true, 'Cargando documento…');
+
+    try {
+      // Limpia el PDF anterior
+      state.token++;
+      if (state.renderTask) { try { state.renderTask.cancel(); } catch (e) {} state.renderTask = null; }
+      if (state.pdf) { try { await state.pdf.destroy(); } catch (e) {} state.pdf = null; }
+
+      const buffer = await file.arrayBuffer();
+      const task = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+      const pdf = await task.promise;
+
+      state.pdf = pdf;
+      state.page = 1;
+
+      fileInfo.textContent = file.name;
+      fileInfo.title = file.name;
+
+      show(dropZone, false);
+      show(canvas, true);
+      show(centerControls, true);
+      show(mobileNav, true);
+
+      updatePageUI();
+      updateZoomLabel();
+
+      // Ajuste inicial: ancho
+      setLoading(true, 'Ajustando…');
+      await fitToWidth();
+
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
+      console.error(err);
+      alert('No se pudo abrir el PDF: ' + (err?.message || err));
+    }
+  }
+
+  /* ============================================================
+   *  PANTALLA COMPLETA + AUTO-OCULTADO DE CHROME
+   * ============================================================ */
+  function showChrome() {
+    document.body.classList.remove('chrome-hidden');
+    if (!state.fullscreen) return;
+    clearTimeout(state.chromeTimer);
+    state.chromeTimer = setTimeout(() => {
+      if (state.fullscreen) document.body.classList.add('chrome-hidden');
+    }, CHROME_HIDE_MS);
+  }
+
+  async function toggleFullscreen() {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.warn('Fullscreen no disponible:', err);
+    }
+  }
+
+  document.addEventListener('fullscreenchange', () => {
+    state.fullscreen = !!document.fullscreenElement;
+    const icon = fullscreenBtn.querySelector('i');
+    if (icon) {
+      icon.setAttribute('data-lucide', state.fullscreen ? 'minimize' : 'maximize');
+      if (window.lucide) lucide.createIcons();
+    }
+    if (state.fullscreen) {
+      showChrome();
+    } else {
+      document.body.classList.remove('chrome-hidden');
+      clearTimeout(state.chromeTimer);
+    }
+  });
+
+  // Muestra el chrome al mover/scroll/tocar
+  ['mousemove', 'mousedown', 'wheel'].forEach(evt =>
+    document.addEventListener(evt, showChrome, { passive: true }));
+  document.addEventListener('touchstart', showChrome, { passive: true });
+  mainArea.addEventListener('scroll', showChrome, { passive: true });
+
+  /* ============================================================
+   *  ATAJOS DE TECLADO
+   * ============================================================ */
+  document.addEventListener('keydown', (e) => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+
+    // Ctrl / Cmd
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomIn();  return; }
+      if (e.key === '-')                  { e.preventDefault(); zoomOut(); return; }
+      if (e.key === '0')                  { e.preventDefault(); applyScale(1, 'custom'); return; }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowRight': case 'PageDown': case ' ':
+        e.preventDefault(); nextPage(); break;
+      case 'ArrowLeft': case 'PageUp':
+        e.preventDefault(); prevPage(); break;
+      case 'ArrowDown':
+        mainArea.scrollBy({ top: 120, behavior: 'smooth' }); e.preventDefault(); break;
+      case 'ArrowUp':
+        mainArea.scrollBy({ top: -120, behavior: 'smooth' }); e.preventDefault(); break;
+      case '+': case '=': zoomIn();  break;
+      case '-': case '_': zoomOut(); break;
+      case 'f': case 'F': toggleFullscreen(); break;
+      case 'Home': goToPage(1); break;
+      case 'End':  if (state.pdf) goToPage(state.pdf.numPages); break;
+    }
+  });
+
+  /* ============================================================
+   *  GESTOS TÁCTILES (swipe horizontal = cambiar página)
+   * ============================================================ */
+  mainArea.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    state.touch.x = e.touches[0].clientX;
+    state.touch.y = e.touches[0].clientY;
+    state.touch.t = Date.now();
+    state.touch.active = true;
+  }, { passive: true });
+
+  mainArea.addEventListener('touchend', (e) => {
+    if (!state.touch.active) return;
+    state.touch.active = false;
+
+    const t = e.changedTouches[0];
+    const dx = t.clientX - state.touch.x;
+    const dy = t.clientY - state.touch.y;
+    const dt = Date.now() - state.touch.t;
+
+    // Solo si es rápido, mayormente horizontal, y con desplazamiento suficiente
+    if (dt > 600) return;
+    if (Math.abs(dx) < 60) return;
+    if (Math.abs(dx) < Math.abs(dy) * 1.5) return;
+
+    if (dx < 0) nextPage();
+    else        prevPage();
+  }, { passive: true });
+
+  /* ============================================================
+   *  DRAG & DROP
+   * ============================================================ */
+  let dragCounter = 0;
+  document.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    show(dropOverlay, true);
+  });
+  document.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragCounter = Math.max(0, dragCounter - 1);
+    if (dragCounter === 0) show(dropOverlay, false);
+  });
+  document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  });
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    show(dropOverlay, false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) loadPDF(file);
+  });
+
+  /* ============================================================
+   *  EVENTOS
+   * ============================================================ */
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (file) loadPDF(file);
+    e.target.value = ''; // permite recargar el mismo archivo
+  });
+
+  $('prevBtn').addEventListener('click', prevPage);
+  $('nextBtn').addEventListener('click', nextPage);
+  $('prevBtnM').addEventListener('click', prevPage);
+  $('nextBtnM').addEventListener('click', nextPage);
+
+  pageInput.addEventListener('change', () => {
+    const v = parseInt(pageInput.value, 10);
+    if (state.pdf && v >= 1 && v <= state.pdf.numPages) goToPage(v);
+    else pageInput.value = state.page;
+  });
+  pageInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); pageInput.blur(); }
+  });
+
+  $('zoomIn').addEventListener('click', zoomIn);
+  $('zoomOut').addEventListener('click', zoomOut);
+  $('fitBtn').addEventListener('click', fitToWidth);
+  zoomLevel.addEventListener('click', fitToWidth);
+  zoomLevel.addEventListener('dblclick', fitToPage);
+
+  fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+  document.querySelectorAll('.theme-switcher button').forEach(btn => {
+    btn.addEventListener('click', () => setTheme(btn.dataset.theme));
+  });
+
+  // Reajustar al redimensionar si estamos en modo "fit"
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (!state.pdf) return;
+    if (state.fitMode !== 'width' && state.fitMode !== 'page') return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      state.fitMode === 'page' ? fitToPage() : fitToWidth();
+    }, 140);
+  });
+
+  /* ============================================================
+   *  INIT
+   * ============================================================ */
+  function init() {
+    // Detecta el tema inicial (ya aplicado por el script inline)
+    const initial = document.documentElement.classList.contains('theme-dark') ? 'dark'
+                  : document.documentElement.classList.contains('theme-epaper') ? 'epaper'
+                  : 'normal';
+    setTheme(initial);
+
+    updateZoomLabel();
+    updatePageUI();
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  // Arranca cuando el DOM esté listo
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
 </body>
 </html>
-```
