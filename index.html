@@ -89,11 +89,16 @@ html[data-theme="epaper"] body::before{
   border-radius:9px; background:var(--accent-soft); color:var(--accent); flex-shrink:0;
 }
 .brand-icon svg{width:18px;height:18px}
-.brand-info{display:flex; flex-direction:column; line-height:1.15; min-width:0; flex:1}
-.brand-title{font-weight:700; font-size:13px; display:none}
+.brand-info{display:flex; align-items:center; gap:6px; line-height:1.15; min-width:0; flex:1}
+.brand-title{font-weight:700; font-size:13px; display:none; white-space:nowrap}
 .brand-filename{
   font-size:13px; color:var(--text-2);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
+}
+.badge-version{
+  font-size:9px; color:var(--accent); font-weight:700;
+  padding:2px 5px; border:1px solid var(--accent); border-radius:5px;
+  flex-shrink:0;
 }
 @media (min-width:640px){
   .brand-title{display:block}
@@ -169,17 +174,16 @@ html[data-theme="epaper"] body::before{
 @media (min-width:640px){.main{padding:24px}}
 @media (min-width:1024px){.main{padding:32px}}
 
-/* FIX: canvas oculto por defecto; se le da fondo solo cuando está visible */
+/* FIX: canvas controlado por style.display inline */
 #canvas{
   display:block; border-radius:4px;
   box-shadow:var(--shadow); filter:var(--canvas-filter);
   transition:filter .3s,box-shadow .3s;
-  background:transparent; max-width:100%; height:auto;
+  background:var(--canvas-bg); max-width:100%; height:auto;
   flex-shrink:0;
 }
-#canvas:not([hidden]){ background:var(--canvas-bg); }
 
-/* ============ EMPTY STATE (FIX: ya no usa position:absolute) ============ */
+/* ============ EMPTY STATE ============ */
 .empty{
   width:100%;
   display:flex; flex-direction:column; align-items:center;
@@ -361,7 +365,6 @@ html[data-theme="epaper"] body::before{
   background:color-mix(in srgb,var(--bg) 82%,transparent);
   backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
 }
-.loading[hidden]{display:none}
 .loading-inner{display:flex; flex-direction:column; align-items:center; gap:12px}
 .spinner{
   width:34px; height:34px;
@@ -378,7 +381,6 @@ html[data-theme="epaper"] body::before{
   backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
   border:3px dashed var(--accent); pointer-events:none;
 }
-.drop-overlay[hidden]{display:none}
 .drop-overlay-inner{
   display:flex; flex-direction:column; align-items:center; gap:10px;
   color:var(--text); font-weight:600;
@@ -394,6 +396,7 @@ html[data-theme="epaper"] body::before{
   <div class="brand-info">
     <span class="brand-title">PaperReader</span>
     <span class="brand-filename" id="filename">Sin documento</span>
+    <span class="badge-version">v3</span>
   </div>
   <div class="header-spacer"></div>
 
@@ -480,7 +483,8 @@ html[data-theme="epaper"] body::before{
     </div>
   </div>
 
-  <canvas id="canvas" hidden></canvas>
+  <!-- FIX: canvas oculto por style inline, no por atributo hidden -->
+  <canvas id="canvas" style="display:none"></canvas>
 </main>
 
 <!-- ============ BOTTOM NAV ============ -->
@@ -730,9 +734,9 @@ html[data-theme="epaper"] body::before{
       filename.textContent = file.name;
       filename.title = file.name;
 
-      // FIX: usa [hidden] explícitamente (ahora sí funciona gracias al !important)
-      emptyState.hidden = true;
-      canvas.hidden = false;
+      // FIX: usa style.display inline
+      emptyState.style.display = 'none';
+      canvas.style.display = 'block';
       bottomNav.hidden = false;
       bottomNav.classList.add('visible');
 
